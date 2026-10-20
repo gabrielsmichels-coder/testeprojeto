@@ -1,0 +1,10 @@
+<resources>
+<string name="app_name">Projetor Home</string>
+<string name="headline">Seu entretenimento, em primeiro plano</string>
+<string name="subtitle">Escolha um aplicativo ou use os atalhos do projetor</string>
+<string name="apps">Aplicativos</string>
+<string name="shortcuts">Atalhos</string>
+<string name="appearance">Aparência</string>
+<string name="empty">Nenhum aplicativo disponível</string>
+<string name="unavailable">Recurso indisponível neste dispositivo</string>
+</resources>

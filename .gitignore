@@ -1,0 +1,16 @@
+.gradle/
+.idea/
+**/build/
+local.properties
+*.iml
+.kotlin/
+
+# Machine-local SDK, signing material and exported binaries
+.android/
+android-sdk/
+*.apk
+*.aab
+*.jks
+*.keystore
+.env
+.env.*
