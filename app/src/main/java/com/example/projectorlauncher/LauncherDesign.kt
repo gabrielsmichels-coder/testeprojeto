@@ -12,7 +12,7 @@ data class LauncherPalette(
             "contrast" -> LauncherPalette(0xff000000.toInt(), 0xff000000.toInt(), 0xff182638.toInt(),
                 0xffffffff.toInt(), 0xffffffff.toInt(), 0xffffff00.toInt(), 0xffffffff.toInt())
             else -> LauncherPalette(0xff101522.toInt(), 0xff1c2436.toInt(), 0xff314767.toInt(),
-                0xfff5f7fc.toInt(), 0xffb8c2d6.toInt(), 0xffa8c7fa.toInt(), 0xff66758e.toInt())
+                0xfff5f7fc.toInt(), 0xffd2dbec.toInt(), 0xffa8c7fa.toInt(), 0xff66758e.toInt())
         }
     }
 }

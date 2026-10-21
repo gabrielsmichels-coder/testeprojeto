@@ -1,4 +1,4 @@
-# Projetor Home · 0.3.0
+# Projetor Home · 0.4.0
 
 Launcher Kotlin + XML para o Bettdow AC1041-X7, Android 9/API 28 ou superior, com foco em controle remoto e aparelhos com aproximadamente 1 GB de RAM. É uma evolução do projeto existente, com o mesmo pacote `com.example.projectorlauncher`.
 
@@ -18,7 +18,7 @@ Em **Configurações > Aparência**, escolha Claro, Escuro ou Alto contraste. A 
 
 Sons da interface podem ser ativados/desativados. Navegação e confirmação usam efeitos nativos diferentes (`FX_FOCUS_NAVIGATION_*` e `FX_KEYPRESS_RETURN`), respeitando as opções e o volume do Android. O firmware pode mapear ou silenciar esses efeitos; não há assets de áudio nem controle forçado de volume.
 
-Animações usam somente APIs nativas: escala de foco de 1,025×/100 ms, transição de tela de 160 ms, entrada de menu de 140 ms e saída de 100 ms. **Reduzir animações** desativa escala, fades, deslocamentos e animações de janela dos menus. Não há mascote, loop de animação, vídeo ou background em movimento.
+Animações usam somente APIs nativas: escala de foco de 1,05× nos aplicativos (1,025× nos demais controles)/100 ms, transição de tela de 160 ms, entrada de menu de 140 ms e saída de 100 ms. **Reduzir animações** desativa escala, fades (inclusive entre wallpapers), deslocamentos e animações de janela dos menus. Não há mascote, loop contínuo de animação ou vídeo. A troca opcional de wallpapers usa crossfade de 380 ms após 180 ms de foco estável.
 
 ## Ícones reais e memória
 
@@ -42,7 +42,7 @@ Os comandos equivalentes foram verificados pelo usuário via ADB. Os atalhos no 
 
 Não removemos, desativamos ou configuramos o ZEASN, não alteramos preferências de HOME e não selecionamos este launcher como padrão. A declaração HOME existente permanece para escolha manual quando o usuário desejar; o app também abre pelo ícone comum.
 
-O pacote é o mesmo, versionCode é **3** e versionName é **0.3.0**. Atualização por cima exige também a **mesma chave de assinatura**. Builds debug da nuvem, do seu Windows e de runners diferentes podem usar chaves diferentes. Se o Android reportar assinatura incompatível, não desinstale automaticamente: perderia os dados locais do nosso launcher. Use a chave original para compilar uma atualização compatível. Isso não envolve a assinatura ou a instalação do ZEASN.
+O pacote é o mesmo, versionCode é **4** e versionName é **0.4.0**. Atualização por cima exige também a **mesma chave de assinatura**. Builds debug da nuvem, do seu Windows e de runners diferentes podem usar chaves diferentes. Se o Android reportar assinatura incompatível, não desinstale automaticamente: perderia os dados locais do nosso launcher. Use a chave original para compilar uma atualização compatível. Isso não envolve a assinatura ou a instalação do ZEASN.
 
 ## Compilar no Windows
 
@@ -90,3 +90,15 @@ No Bettdow físico, conferir:
 4. Temas em menus e mensagens, sons ativados/desativados e movimento reduzido.
 5. Os cinco atalhos proprietários como app comum, telas de áudio/rede/Bluetooth e estado de Wi-Fi após conexão/desconexão.
 6. RAM/fluidez com Android Studio Profiler ou `adb shell dumpsys meminfo com.example.projectorlauncher`, e preservação do ZEASN/HOME original.
+
+## Versão 0.4.0 — glass e cinema
+
+Painéis translúcidos com cantos arredondados, brilho estático e bordas em camadas dão unidade à navegação, cartões e menus. Não há blur em tempo real, RenderEffect, sombras grandes ou frameworks novos. Alto contraste mantém superfícies opacas. Testes verificam texto normal/secundário sobre glass com fundos extremos claros/escuros. O cabeçalho usa uma faixa de vidro; os favoritos de Home não repetem a legenda “★ Favorito”.
+
+Na tela inicial, o foco D-pad em favoritos de streaming troca o cenário sem abrir o app. São reconhecidos pacotes de Netflix, Prime Video, Max/HBO, Disney+, Globoplay, YouTube, Apple TV e Paramount. As cenas são paisagens abstratas originais, não imagens de filmes/séries. Consulte ARTWORK.md para procedência e licença CC0 dos desenhos. Apps ausentes/desconhecidos e controles sem app associado usam um cenário neutro.
+
+O carregamento espera 180 ms de foco estável. Pedidos anteriores são invalidados, inclusive resultados de rasterização que terminam atrasados. A transição dura 380 ms; movimentos rápidos não mantêm um cache de todos os serviços. Há apenas o quadro atual e o próximo, em RGB_565, até 1920×1080 (aproximadamente 8 MiB para dois wallpapers 1080p). Em resoluções menores usa o tamanho real; telas maiores usam amostragem limitada a 1080p para proteger a RAM. Imagens são liberadas ao sair da Activity/trocar a tela. Os ícones continuam com seu orçamento separado e carregamento somente na área visível.
+
+Em **Configurações > Aparência**, **Papéis de parede dinâmicos** pode ser desativado para manter somente o cenário neutro. Movimento reduzido troca o cenário sem fade; Alto contraste desativa as imagens e o glass translúcido. As preferências ficam salvas. Não há importação de fotos ou acesso à Internet nesta implementação.
+
+No projetor, validar foco rápido entre serviços, passagem por apps sem mapeamento, retorno de apps externos, temas, menus, legibilidade sobre o fundo e memória/fluidez com wallpaper ativado e desativado. O estilo do desenho e a fidelidade das cores precisam de avaliação no hardware; testes locais não medem desempenho no AC1041-X7.

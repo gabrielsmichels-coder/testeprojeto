@@ -46,6 +46,8 @@ class MainActivity : Activity() {
     private var themeMode = "dark"
     private var uiSounds = true
     private var reducedMotion = false
+    private var dynamicWallpapers = true
+    private var wallpaperController: WallpaperController? = null
     private var focusReady = false
     private var navigationSound = AudioManager.FX_FOCUS_NAVIGATION_DOWN
     private var pendingNavigationSound = false
@@ -73,6 +75,7 @@ class MainActivity : Activity() {
         themeMode = preferences.getString("theme_v3", "dark") ?: "dark"
         uiSounds = preferences.getBoolean("sounds_v3", true)
         reducedMotion = preferences.getBoolean("reduced_motion_v3", false)
+        dynamicWallpapers = preferences.getBoolean("dynamic_wallpapers_v4", true)
         screen = savedInstanceState?.getString("screen")?.let { name ->
             Screen.entries.firstOrNull { it.name == name }
         } ?: Screen.HOME
@@ -93,6 +96,7 @@ class MainActivity : Activity() {
     }
 
     private fun render(restoreFocus: String? = null) {
+        wallpaperController?.close(); wallpaperController = null
         val currentGeneration = ++generation
         focusReady = false
         pendingNavigationSound = false
@@ -104,6 +108,12 @@ class MainActivity : Activity() {
         window.navigationBarColor = palette.background
         window.decorView.systemUiVisibility = if (themeMode == "light") View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR else 0
         findViewById<View>(R.id.root).setBackgroundColor(palette.background)
+        findViewById<View>(R.id.readabilityOverlay).background = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM, when (themeMode) {
+                "contrast" -> intArrayOf(palette.background, palette.background)
+                "light" -> intArrayOf(0xd9edf1f7.toInt(), 0xf5edf1f7.toInt())
+                else -> intArrayOf(0xc4101522.toInt(), 0xe6101522.toInt())
+            })
         body = findViewById(R.id.body)
         buildNavigation()
         when (screen) {
@@ -117,6 +127,7 @@ class MainActivity : Activity() {
         findViewById<View>(R.id.contentScroll).viewTreeObserver.addOnScrollChangedListener { refreshVisibleIcons() }
         body.post {
             if (isDestroyed || generation != currentGeneration) return@post
+            ensureWallpaper()
             val target = restoreFocus?.let { findViewById<View>(R.id.root).findViewWithTag<View>(it) }
             (target ?: firstFocusable(body) ?: findViewById<View>(R.id.navigation).findViewWithTag("nav:home"))?.requestFocus()
             focusReady = true
@@ -138,6 +149,8 @@ class MainActivity : Activity() {
 
     private fun buildNavigation() {
         val bar = findViewById<LinearLayout>(R.id.navigation)
+        bar.background = glassPanel(false)
+        bar.setPadding(dp(6), 0, dp(6), 0)
         val compact = resources.configuration.screenWidthDp < 760
         listOf(Triple("Início", Screen.HOME, "home"), Triple("Aplicativos", Screen.APPS, "apps"),
             Triple("Configurações", Screen.SETTINGS, "settings")).forEach { (label, destination, key) ->
@@ -145,7 +158,7 @@ class MainActivity : Activity() {
                 textSize = if (compact) 14f else 17f
                 isSelected = screen == destination || (destination == Screen.SETTINGS && screen in
                     listOf(Screen.APPEARANCE, Screen.PICTURE, Screen.INPUTS))
-                layoutParams = LinearLayout.LayoutParams(dp(if (compact) 94 else 128), dp(48)).apply { marginEnd = dp(6) }
+                layoutParams = LinearLayout.LayoutParams(dp(if (compact) (if (key == "home") 74 else 98) else 128), dp(48)).apply { marginEnd = dp(6) }
             })
         }
         bar.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
@@ -225,6 +238,7 @@ class MainActivity : Activity() {
         val tile = layoutInflater.inflate(R.layout.app_card, body, false) as LinearLayout
         tile.findViewById<TextView>(R.id.appName).apply { text = app.label; setTextColor(palette.text) }
         tile.findViewById<TextView>(R.id.appBadge).apply {
+            visibility = if (screen == Screen.HOME) View.GONE else View.VISIBLE
             text = if (isFavorite(app)) "★ Favorito" else if (manageFavorites) "☆ Adicionar" else ""
             setTextColor(palette.secondary)
         }
@@ -317,6 +331,11 @@ class MainActivity : Activity() {
         actionRow("Sons da interface: ${if (uiSounds) "ativados" else "desativados"}", "appearance:sounds") {
             uiSounds = !uiSounds; preferences.edit().putBoolean("sounds_v3", uiSounds).apply(); render("appearance:sounds")
         }
+        actionRow("Papéis de parede dinâmicos: ${if (dynamicWallpapers) "ativados" else "desativados"}", "appearance:wallpapers") {
+            dynamicWallpapers = !dynamicWallpapers
+            preferences.edit().putBoolean("dynamic_wallpapers_v4", dynamicWallpapers).apply()
+            render("appearance:wallpapers")
+        }
         actionRow("Reduzir animações: ${if (reducedMotion) "ativado" else "desativado"}", "appearance:motion") {
             reducedMotion = !reducedMotion; preferences.edit().putBoolean("reduced_motion_v3", reducedMotion).apply(); render("appearance:motion")
         }
@@ -330,18 +349,35 @@ class MainActivity : Activity() {
         })
     }
 
+    private fun glassPanel(focused: Boolean, selected: Boolean = false): android.graphics.drawable.Drawable {
+        val contrast = themeMode == "contrast"
+        val fill = GlassColors.fill(palette, focused, contrast)
+        val panel = GradientDrawable(GradientDrawable.Orientation.TL_BR,
+            intArrayOf(fill, fill, if (contrast) fill else (fill and 0x00ffffff) or (0xf8 shl 24))).apply {
+            cornerRadius = dp(18).toFloat()
+            setStroke(dp(if (focused) 2 else 1), if (focused || selected) palette.accent
+                else if (contrast) palette.outline else (palette.outline and 0x00ffffff) or 0x80000000.toInt())
+        }
+        if (contrast) return panel
+        val highlight = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(0x17ffffff, 0x00ffffff, 0x00ffffff)).apply { cornerRadius = dp(18).toFloat() }
+        val layers = mutableListOf<android.graphics.drawable.Drawable>()
+        if (focused) layers.add(GradientDrawable().apply {
+            cornerRadius = dp(20).toFloat(); setColor(0x00000000)
+            setStroke(dp(5), (palette.accent and 0x00ffffff) or 0x40000000)
+        })
+        layers.add(panel); layers.add(highlight)
+        return android.graphics.drawable.LayerDrawable(layers.toTypedArray()).apply {
+            if (focused) { setLayerInset(1, dp(2), dp(2), dp(2), dp(2)); setLayerInset(2, dp(2), dp(2), dp(2), dp(2)) }
+        }
+    }
     private fun tileBackground() = StateListDrawable().apply {
         setEnterFadeDuration(if (reducedMotion) 0 else 100)
         setExitFadeDuration(if (reducedMotion) 0 else 100)
-        fun shape(focused: Boolean, selected: Boolean = false) = GradientDrawable().apply {
-            setColor(if (focused) palette.focused else palette.surface)
-            cornerRadius = dp(14).toFloat()
-            setStroke(dp(if (focused) 3 else 1), if (focused || selected) palette.accent else palette.outline)
-        }
-        addState(intArrayOf(android.R.attr.state_focused), shape(true))
-        addState(intArrayOf(android.R.attr.state_pressed), shape(true))
-        addState(intArrayOf(android.R.attr.state_selected), shape(false, true))
-        addState(intArrayOf(), shape(false))
+        addState(intArrayOf(android.R.attr.state_focused), glassPanel(true))
+        addState(intArrayOf(android.R.attr.state_pressed), glassPanel(true))
+        addState(intArrayOf(android.R.attr.state_selected), glassPanel(false, true))
+        addState(intArrayOf(), glassPanel(false))
     }
     private fun button(title: String, key: String, action: () -> Unit) = Button(this).apply {
         text = title; textSize = 18f; isAllCaps = false
@@ -357,7 +393,8 @@ class MainActivity : Activity() {
         view.setOnFocusChangeListener { v, focused ->
             v.animate().cancel()
             if (reducedMotion) { v.scaleX = 1f; v.scaleY = 1f }
-            else v.animate().scaleX(if (focused) 1.025f else 1f).scaleY(if (focused) 1.025f else 1f).setDuration(100).start()
+            else v.animate().scaleX(if (focused) (if (key.startsWith("app:")) 1.05f else 1.025f) else 1f).scaleY(if (focused) (if (key.startsWith("app:")) 1.05f else 1.025f) else 1f).setDuration(100).start()
+            if (focused) requestWallpaper(key)
             if (focused && focusReady && pendingNavigationSound) {
                 if (uiSounds) audio.playSoundEffect(navigationSound)
                 pendingNavigationSound = false
@@ -391,7 +428,7 @@ class MainActivity : Activity() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(24), dp(24), dp(24)); setBackgroundColor(palette.surface)
+            orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(24), dp(24), dp(24)); background = glassPanel(false)
         }
         panel.addView(label(title, 24f))
         if (message != null) panel.addView(label(message, 17f, true))
@@ -410,7 +447,7 @@ class MainActivity : Activity() {
         }
         dialog.window?.setWindowAnimations(if (reducedMotion) 0 else R.style.MenuMotion)
         dialog.show()
-        dialog.window?.setBackgroundDrawable(ColorDrawable(palette.surface))
+        dialog.window?.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
         dialog.window?.setLayout(minOf(dp(560), resources.displayMetrics.widthPixels - dp(48)), -2)
         firstFocusable(panel)?.requestFocus()
         menu = dialog
@@ -491,6 +528,21 @@ class MainActivity : Activity() {
         return bitmap
     }
 
+    private fun ensureWallpaper() {
+        if (wallpaperController != null || themeMode == "contrast") return
+        wallpaperController = WallpaperController(findViewById(R.id.wallpaperFirst), findViewById(R.id.wallpaperSecond), reducedMotion)
+        wallpaperController?.request("neutral", immediate = true)
+    }
+    private fun requestWallpaper(key: String?) {
+        val scene = if (dynamicWallpapers && screen == Screen.HOME && key?.startsWith("app:") == true)
+            CinematicPolicy.scene(key.removePrefix("app:")) else "neutral"
+        wallpaperController?.request(scene)
+    }
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) requestWallpaper(currentFocus?.tag as? String)
+    }
+
     private fun networkChanged() = runOnUiThread { if (!isDestroyed) updateNetwork() }
     private fun updateNetwork() {
         val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork)
@@ -509,8 +561,10 @@ class MainActivity : Activity() {
     }
     override fun onResume() {
         super.onResume(); updateNetwork(); discoverApps()
+        findViewById<View>(R.id.root).post { if (!isDestroyed) { ensureWallpaper(); requestWallpaper(currentFocus?.tag as? String) } }
     }
     override fun onStop() {
+        wallpaperController?.close(); wallpaperController = null
         if (callbackRegistered) { connectivity.unregisterNetworkCallback(networkCallback); callbackRegistered = false }
         super.onStop()
     }
@@ -529,7 +583,7 @@ class MainActivity : Activity() {
         super.onSaveInstanceState(outState)
     }
     override fun onDestroy() {
-        generation++; menu?.dismiss(); worker.shutdownNow()
+        generation++; menu?.dismiss(); wallpaperController?.close(); worker.shutdownNow()
         iconBindings.clear()
         super.onDestroy()
     }

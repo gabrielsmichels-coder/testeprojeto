@@ -1,5 +1,12 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/root" android:layout_width="match_parent" android:layout_height="match_parent"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/root"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <FrameLayout android:id="@+id/wallpaperHost" android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="noHideDescendants">
+        <ImageView android:id="@+id/wallpaperFirst" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="centerCrop" android:contentDescription="@null" />
+        <ImageView android:id="@+id/wallpaperSecond" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="centerCrop" android:contentDescription="@null" android:alpha="0" />
+    </FrameLayout>
+    <View android:id="@+id/readabilityOverlay" android:layout_width="match_parent" android:layout_height="match_parent" />
+<LinearLayout
+    android:id="@+id/contentShell" android:layout_width="match_parent" android:layout_height="match_parent"
     android:orientation="vertical" android:paddingStart="24dp" android:paddingEnd="24dp">
     <LinearLayout android:id="@+id/navigation" android:layout_width="match_parent"
         android:layout_height="76dp" android:gravity="center_vertical" android:orientation="horizontal" />
@@ -11,3 +18,5 @@
             android:padding="8dp" android:clipChildren="false" android:clipToPadding="false" />
     </ScrollView>
 </LinearLayout>
+
+</FrameLayout>

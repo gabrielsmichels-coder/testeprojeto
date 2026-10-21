@@ -1,31 +1,31 @@
-# Version 0.3.0 — validation
+# Version 0.4.0 — validation
 
-## Current-instance result
+## Local build
 
-`assembleDebug`, `testDebugUnitTest`, and `lintDebug` completed successfully (exit 0).
+`assembleDebug`, `testDebugUnitTest`, and `lintDebug` completed with exit code 0.
 
-- APK: `app/build/outputs/apk/debug/app-debug.apk`, 2,541,712 bytes.
-- Package: `com.example.projectorlauncher` (unchanged).
-- Version: 0.3.0, versionCode 3, minimum API 28, compile/target API 35.
-- Debug signature verified with Android Build-Tools `apksigner`.
-- APK package/version/permission metadata checked with `aapt dump badging`.
-- SHA-256: `66204e1b4d8a1a130cf313539f806e8287ce437c258475aa62fa9b72f2066119`.
-- Four unit tests executed: 4 passed, 0 failed, 0 skipped. They check readable text/focus contrast in all themes, favorite removal at capacity, maximum size, ordering, deduplication and preservation of empty selections.
-- Android Lint: 0 errors, 2 warnings (intentional landscape orientation; Android 12+ backup configuration). No suppressed errors or baseline.
-- XML/YAML, required CI packages, artifact name and obsolete SDK package exclusion checked.
+- APK: `app/build/outputs/apk/debug/app-debug.apk`, 2,571,944 bytes.
+- Package `com.example.projectorlauncher`, version 0.4.0, versionCode 4, min API 28, target/compile API 35.
+- `apksigner verify`: passed; `aapt dump badging`: package/version/API checked.
+- SHA-256: `9ec59b23d711c3882a7a3ff1c50127c0d66f03e085d4bcc76d509fddf5233a50`.
+- Unit tests: **9 passed, 0 failed, 0 skipped**. Tests cover existing favorite rules, all three palettes, translucent glass over black/white backdrops, supported/unknown package mappings, bounded resolution/aspect ratio and opaque high-contrast surfaces.
+- Lint: **0 errors, 3 warnings**. Warnings are landscape orientation, Android 12+ backup configuration and the intentional layered root FrameLayout. No error suppression/baseline was added.
+- XML parsed successfully; GitHub Actions workflow and application manifest are unchanged.
 
-The SDK, Gradle and proxy configuration from the prepared cloud workspace were reused; no TLS/checksum verification was disabled. The SDK analytics write warning in the read-only home directory is nonfatal. Some APIs needed for Android 9 compatibility produce deprecation warnings against SDK 35.
+## Delivered behavior
 
-## UI and behavior implemented
+Glass panels use translucent native gradients, highlights and layered borders, without blur or RenderEffect. App focus scales to 1.05× without changing layout. Home omits repeated favorite badges. Original installed app icons, app launching, favorites, menus, sounds, themes, settings and projector Intents are retained.
 
-Home contains at most six favorite apps; all apps live in a dedicated grid. The full-screen internal Settings dashboard contains eight categories, with preserved projector Intents inside Picture/Projection and Inputs. Appearance applies Light, Dark or High Contrast to cards, text, menus and focus. Favorite choices, themes, sounds and reduced motion persist in SharedPreferences. Native sound effects and short property/window animations are optional. No mascot code or artwork remains.
+Home focus selects original service-themed cinematic landscapes (not promotional imagery) for Netflix, Prime Video, Max/HBO, Disney+, Globoplay, YouTube, Apple TV and Paramount. Unknown packages/controls select neutral art. Artwork provenance/license is in ARTWORK.md. No images are downloaded or scraped, and user-photo import is not part of this version.
 
-Real package icons are loaded only for visible cards, on one worker thread, rasterized proportionally with transparency at a maximum of 144×144 pixels, and released offscreen. No network image or audio assets, continuous animation, runtime UI framework dependency or service is added. ACCESS_NETWORK_STATE is used only to read connection status.
+Wallpaper requests debounce for 180 ms, cancel stale work/results and crossfade for 380 ms. A worker rasterizes static artwork to actual view dimensions capped at 1920×1080. Current and incoming RGB_565 frames are the only retained wallpapers (at most approximately 8 MiB at 1080p, separate from bounded visible app icons). Layers are cleared on stop/rebuild; no continuous effects run. Dynamic wallpapers can be disabled in Appearance. Reduced motion eliminates fades/scaling; High Contrast uses solid opaque surfaces and no wallpaper images.
 
-## CI and limits
+The contrast test initially caught insufficient dark secondary-text contrast over bright glass. Secondary text was brightened and the unchanged contrast threshold now passes.
 
-The GitHub Actions workflow retains Java 17, manual/push-main triggers, current SDK packages and the `projector-launcher-debug` artifact (14-day retention). It now runs the same unit tests and lint before uploading the APK. Local validation does not establish that a GitHub-hosted run completed; remote results must be observed separately.
+## CI and physical testing
 
-No emulator or physical projector test was performed. Physical testing remains necessary for D-pad scrolling/long-press, all three themes and menus, audio behavior and disabling sounds, reduced motion, Wi-Fi status changes, proprietary intent authorization and RAM/frame-time measurements on the 1 GB device. The API-28 compatibility claim here is based on build configuration/API analysis, not an emulator run.
+The existing Java 17 GitHub Actions workflow remains intact: push-main/manual triggers, unit tests, lint, debug APK build and `projector-launcher-debug` upload. Local build success does not establish remote completion; check the current Actions run separately if API access is unavailable.
 
-The factory ZEASN package, device, HOME preference and projector configuration were not changed. Updates of our launcher also require the same signing certificate as the previously installed APK; debug keys from separate machines/runners may differ. See README.md.
+No emulator or physical projector run was performed. On the Bettdow AC1041-X7, verify fast D-pad focus changes/cancelled fades, artwork colors and projector text contrast, sounds/reduced motion, favorite management, Wi-Fi status, all native projector Intents, app-return lifecycle and RAM/frame pacing on the 1 GB device. Memory bounds above are calculated allocation limits, not measured total application RAM.
+
+ZEASN, factory HOME configuration and projector state were not changed. Updating an installed debug build requires the same signing key; different cloud/Windows/CI debug keys may prevent an in-place update even with the same package ID.

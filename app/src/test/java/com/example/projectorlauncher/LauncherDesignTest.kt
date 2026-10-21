@@ -26,6 +26,23 @@ class LauncherDesignTest {
             assertTrue("$mode focus border", ratio(palette.accent, palette.focused) >= 3.0)
         }
     }
+    private fun composite(color: Int, behind: Int): Int {
+        val alpha = (color ushr 24) / 255.0
+        fun channel(shift: Int) = (((color shr shift and 255) * alpha +
+            (behind shr shift and 255) * (1 - alpha)).toInt() shl shift)
+        return 0xff000000.toInt() or channel(16) or channel(8) or channel(0)
+    }
+    @Test fun translucentGlassKeepsTextReadableOverBothExtremeWallpapers() {
+        for (mode in listOf("light", "dark", "contrast")) {
+            val p = LauncherPalette.forMode(mode)
+            for (focused in listOf(false, true)) for (behind in listOf(0xff000000.toInt(), 0xffffffff.toInt())) {
+                val base = composite(GlassColors.fill(p, focused, mode == "contrast"), behind)
+                val highlighted = if (mode == "contrast") base else composite(0x17ffffff, base)
+                assertTrue("$mode glass main", ratio(p.text, highlighted) >= 4.5)
+                assertTrue("$mode glass secondary", ratio(p.secondary, highlighted) >= 4.5)
+            }
+        }
+    }
     @Test fun favoritesCanBeRemovedEvenWhenFull() {
         val full = (1..FavoritePolicy.LIMIT).map { "app.$it" }
         assertNull(FavoritePolicy.toggle(full, "another.app"))
