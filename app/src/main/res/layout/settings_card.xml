@@ -1,0 +1,10 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="132dp" android:orientation="vertical"
+    android:padding="18dp" android:gravity="center_vertical" android:focusable="true" android:clickable="true"
+    android:descendantFocusability="blocksDescendants">
+    <ImageView android:id="@+id/categoryIcon" android:layout_width="30dp" android:layout_height="30dp" android:importantForAccessibility="no" />
+    <TextView android:id="@+id/categoryTitle" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textSize="19sp" android:layout_marginTop="10dp" android:maxLines="2" />
+    <TextView android:id="@+id/categoryHint" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textSize="14sp" android:layout_marginTop="4dp" android:maxLines="1" android:ellipsize="end" />
+</LinearLayout>

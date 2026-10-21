@@ -1,91 +1,92 @@
-# Projetor Home
+# Projetor Home · 0.3.0
 
-Launcher Android nativo em Kotlin e layouts XML. Projeto inicial, criado do zero; Android 9 (API 28) ou superior. Não foi validado em projetor físico.
+Launcher Kotlin + XML para o Bettdow AC1041-X7, Android 9/API 28 ou superior, com foco em controle remoto e aparelhos com aproximadamente 1 GB de RAM. É uma evolução do projeto existente, com o mesmo pacote `com.example.projectorlauncher`.
 
-## Interface e controles
+## Experiência de TV
 
-Layout híbrido com destaque superior inspirado em interfaces de TV, faixa horizontal de atalhos e grade responsiva de aplicativos. Recursos vetoriais locais, relógio e aparência persistente: sistema, claro, escuro e alto contraste independente. Setas do controle remoto movem o foco; centro/Enter ativa cartões. O foco tem borda amarela e mudança de cor. Toque também funciona. Voltar fecha diálogos ou segue o comportamento normal do Android; Home é controlado pelo sistema.
+- **Início:** uma única faixa de até seis favoritos com ícones originais, espaço visual e acesso rápido à navegação. Não contém grade completa de apps, destaque HDMI ou faixa de atalhos de projeção.
+- **Aplicativos:** grade rolável com todos os aplicativos iniciáveis, priorizando a entrada de TV quando um pacote oferece várias entradas. Selecione **Gerenciar favoritos** para adicionar/remover com OK. Mantenha OK pressionado sobre um app para abrir o menu de ações; isso também funciona nos favoritos.
+- **Configurações:** painel próprio, em tela cheia, com Imagem e projeção, Som, Rede/Wi-Fi, Bluetooth, Entradas/HDMI, Aplicativos, Aparência e Sistema. O painel nativo do firmware só abre depois da escolha de uma função que o utiliza.
+- **Barra superior:** Início, Aplicativos, Configurações, estado de conexão Wi-Fi/rede, Entradas, engrenagem e relógio. O estado da rede não afirma acesso à Internet e não exige localização/SSID.
+- **Controle remoto:** setas movem o foco, OK/Enter seleciona, OK prolongado abre as opções do aplicativo. Voltar sai primeiro da edição de favoritos, depois retorna à tela anterior/início. Home continua sob controle do Android.
 
-Lista aplicativos de TV e convencionais, priorizando entradas de TV e removendo duplicatas por pacote. Atualiza a lista ao retornar à atividade. Atalhos abrem telas nativas de Configurações, Wi-Fi, Bluetooth, Aplicativos e Tela. Intent indisponível ou bloqueada pelo fabricante mostra um diálogo de erro, sem encerrar o launcher.
+Os favoritos iniciais são uma seleção de até cinco apps disponíveis, com preferência por serviços de streaming. A seleção salva pode ficar completamente vazia. Apps desinstalados deixam de aparecer; suas preferências podem voltar a ser usadas se o pacote for reinstalado. Não há download de imagens ou conteúdo.
 
-### Atalhos do Bettdow AC1041-X7
+## Aparência, movimento e áudio
 
-| Cartão | Intent Android |
+Em **Configurações > Aparência**, escolha Claro, Escuro ou Alto contraste. A seleção se aplica aos três espaços principais, submenus, menus de aplicativos, mensagens de erro, foco e textos. As escolhas anteriores de tema claro/alto contraste são migradas; novas instalações usam escuro. Favoritos e preferências são salvos em SharedPreferences.
+
+Sons da interface podem ser ativados/desativados. Navegação e confirmação usam efeitos nativos diferentes (`FX_FOCUS_NAVIGATION_*` e `FX_KEYPRESS_RETURN`), respeitando as opções e o volume do Android. O firmware pode mapear ou silenciar esses efeitos; não há assets de áudio nem controle forçado de volume.
+
+Animações usam somente APIs nativas: escala de foco de 1,025×/100 ms, transição de tela de 160 ms, entrada de menu de 140 ms e saída de 100 ms. **Reduzir animações** desativa escala, fades, deslocamentos e animações de janela dos menus. Não há mascote, loop de animação, vídeo ou background em movimento.
+
+## Ícones reais e memória
+
+`ActivityInfo.loadIcon(PackageManager)` carrega os ícones das atividades/aplicativos instalados, inclusive adaptativos. O `ImageView` usa FIT_CENTER, sem tint, com proporção e transparência ARGB preservadas. O ícone genérico do Android só é usado quando o recurso original não está disponível. Na versão antiga os cartões eram somente botões de texto; esse foi o motivo de não haver ícones.
+
+A descoberta de apps e a leitura dos ícones usam um único executor fora da thread principal. Imagens são carregadas somente para cartões visíveis, limitadas a 144×144 pixels (até 81 KiB por ícone) e liberadas quando saem da área visível. Não há cache permanente de bitmaps. A grade mantém metadados e uma View por app: aparelhos com muitos apps ainda precisam de perfil de memória. Não são usados Compose, bibliotecas de imagens, assets grandes ou serviços permanentes. A dependência JUnit é exclusiva dos testes e não entra no APK.
+
+## Integrações preservadas do projetor
+
+| Local | Intent |
 | --- | --- |
-| Fire Stick / HDMI | Componente `com.hisilicon.tvui/com.hisilicon.tvui.MainActivity` |
-| Correção trapezoidal | Ação `com.kystar.settings.SCREEN_CORRECT`, pacote `com.kystar.projector.settings` |
-| Zoom | Ação `com.kystar.settings.SCREEN_ZOOM`, mesmo pacote |
-| Seleção de fontes | Ação `com.kystar.settings.SOURCE_LIST`, mesmo pacote |
-| Orientação da projeção | Ação `com.kystar.settings.PROJECTION_INSTALL_MODE`, mesmo pacote |
+| Entradas > Fire Stick / HDMI | Componente `com.hisilicon.tvui/com.hisilicon.tvui.MainActivity` |
+| Imagem > Correção trapezoidal | `com.kystar.settings.SCREEN_CORRECT`, pacote `com.kystar.projector.settings` |
+| Imagem > Zoom | `com.kystar.settings.SCREEN_ZOOM`, mesmo pacote |
+| Entradas > Seleção de fontes | `com.kystar.settings.SOURCE_LIST`, mesmo pacote |
+| Imagem > Orientação da projeção | `com.kystar.settings.PROJECTION_INSTALL_MODE`, mesmo pacote |
 
-São Intents diretas, sem executar ADB, shell ou solicitar permissões privilegiadas. O atalho HDMI abre a atividade informada pelo usuário; seleção/comportamento de entrada fica sob controle do firmware. Os comandos equivalentes foram testados pelo usuário via ADB, mas isso não confirma acesso por um app comum. `ActivityNotFoundException` mostra diálogo de função ausente; `SecurityException` informa bloqueio pelo firmware e sugere usar as configurações ou launcher original. O diálogo permanece até ser fechado com OK/Voltar, acessível pelo controle remoto. Não há tentativa de contornar permissões.
+Os comandos equivalentes foram verificados pelo usuário via ADB. Os atalhos no app usam exclusivamente Intents e `startActivity`, sem shell/ADB/root. Função ausente e acesso negado geram menus de erro legíveis no tema atual. O sucesso via ADB não garante autorização para apps comuns; se o firmware bloquear, use as configurações ou o launcher original. Não há tentativa de contornar permissões.
 
-Teste os cinco cartões no aparelho instalado como app comum. Se o firmware interceptar silenciosamente uma Intent, só a observação no dispositivo confirma a abertura; não é possível inferir sucesso físico apenas de `startActivity` retornar sem exceção.
+## ZEASN e compatibilidade de atualização
 
-## Segurança do launcher original
+Não removemos, desativamos ou configuramos o ZEASN, não alteramos preferências de HOME e não selecionamos este launcher como padrão. A declaração HOME existente permanece para escolha manual quando o usuário desejar; o app também abre pelo ícone comum.
 
-O app é instalável e pode ser aberto como aplicativo comum, pelo ícone Projetor Home. Declara HOME apenas para permitir escolha manual pelo usuário quando o Android disponibilizar essa opção. Não altera preferências de HOME, não desativa/remove pacotes, não usa root, administrador de dispositivo, acessibilidade ou permissões privilegiadas. Não há comandos para substituir o launcher original. A instalação não seleciona este app como launcher padrão automaticamente.
-
-## Memória
-
-Pensado para aparelhos com cerca de 1 GB de RAM: Activity nativa sem Compose, AndroidX, bibliotecas de imagens, rede, vídeos, bitmaps de wallpaper, cache permanente de ícones ou serviços permanentes. A descoberta dos aplicativos roda fora da thread principal; os cartões exibem o ícone original e o nome. A grade mantém uma View por aplicativo e deve ser medida em aparelhos com muitos apps. Não há promessa de consumo medido: uso de memória, fluidez e comportamento de controle remoto ainda precisam ser testados no hardware. O limite de heap do Gradle é da máquina de compilação, não do projetor.
+O pacote é o mesmo, versionCode é **3** e versionName é **0.3.0**. Atualização por cima exige também a **mesma chave de assinatura**. Builds debug da nuvem, do seu Windows e de runners diferentes podem usar chaves diferentes. Se o Android reportar assinatura incompatível, não desinstale automaticamente: perderia os dados locais do nosso launcher. Use a chave original para compilar uma atualização compatível. Isso não envolve a assinatura ou a instalação do ZEASN.
 
 ## Compilar no Windows
 
-1. Instale Android Studio e use seu JDK embutido (JDK 17 ou 21). Em Settings > Build, Execution, Deployment > Build Tools > Gradle, selecione esse JDK.
-2. Pelo SDK Manager, instale **Android SDK Platform 35**, **Android SDK Build-Tools 34.0.0**, **Android SDK Platform-Tools** e **Android SDK Command-line Tools (latest)**. Compile SDK 35 permite executar a partir da API mínima 28; não exige Android 15 no projetor.
-3. Abra esta pasta no Android Studio, aceite as licenças do SDK e sincronize o Gradle. O Studio cria `local.properties` com `sdk.dir`. Não versione esse arquivo.
-4. No PowerShell, na raiz do projeto:
+Instale Android Studio, JDK 17 (ou o JDK compatível embutido no Studio), SDK Platform 35, Build-Tools 34.0.0 (padrão do AGP 8.7.3), Platform-Tools e Command-line Tools. Aceite as licenças pelo SDK Manager. O projeto fixa Gradle 8.9, AGP 8.7.3 e Kotlin 2.0.21.
+
+No PowerShell, na raiz extraída do projeto:
 
 ```powershell
-# Ajuste se o Android Studio/SDK estiver instalado em outro caminho.
 $env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
-.\gradlew.bat :app:assembleDebug
+.\gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 ```
 
-APK: `app\build\outputs\apk\debug\app-debug.apk`, assinado automaticamente com chave de desenvolvimento. Não é uma versão de produção.
+APK: `app\build\outputs\apk\debug\app-debug.apk`. Ajuste os caminhos conforme sua instalação. O Android Studio também pode criar `local.properties` com `sdk.dir`; não versione esse arquivo. SDK 35 é usado para compilar, mas o app executa a partir da API 28.
 
-Para instalar por USB com depuração autorizada:
+Instalação/abertura por USB com depuração autorizada:
 
 ```powershell
 & "$env:ANDROID_HOME\platform-tools\adb.exe" install -r app\build\outputs\apk\debug\app-debug.apk
 & "$env:ANDROID_HOME\platform-tools\adb.exe" shell am start -n com.example.projectorlauncher/.MainActivity
 ```
 
-Esses comandos apenas instalam/abrem o aplicativo. Não alteram o launcher padrão. Para remover apenas este app: `adb uninstall com.example.projectorlauncher`.
+Isso abre o aplicativo, sem configurar o HOME padrão. Não há comandos que alterem pacotes do projetor.
 
-## Linux / nuvem
+## GitHub Actions e validação
 
-Com JDK 17/21, SDK e licenças configurados:
+Em **Actions > Build debug APK**, uma execução manual ou push relevante na `main` executa testes unitários, lint e build com Java 17, instala pacotes atuais do SDK e publica o artefato `projector-launcher-debug` por 14 dias. O ZIP do artefato contém `app-debug.apk`. A primeira compilação requer acesso aos repositórios oficiais Gradle/Google Maven/Maven Central; mantenha TLS e checksums ativos.
+
+Na nuvem preparada:
 
 ```sh
 export ANDROID_HOME=/workspace/android-sdk
 export ANDROID_USER_HOME=/workspace/android-user-home
 export GRADLE_USER_HOME=/workspace/.gradle
-./gradlew :app:assembleDebug
-./gradlew :app:lintDebug
+./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 ```
 
-Gradle 8.9, Android Gradle Plugin 8.7.3 e Kotlin 2.0.21 estão fixados. O wrapper e a distribuição usam checksum oficial. A primeira execução requer acesso a services.gradle.org, downloads de distribuição do Gradle, Google Maven e Maven Central. Proxies podem exigir configuração JVM/Gradle local; não coloque credenciais no repositório nem desative TLS.
+O proxy deste ambiente pode exigir propriedades JVM de proxy locais, sem credenciais no projeto. Resultados locais estão em `BUILD_STATUS.md`. Testes unitários verificam contraste mínimo das paletas e regras dos favoritos; não substituem testes de interface.
 
-## Validação manual necessária
+No Bettdow físico, conferir:
 
-- Emulador Android TV API 28 e aparelho real: abrir pelo ícone, navegar por todas as linhas com D-pad e ativar com centro/Enter.
-- Alternar claro/escuro/sistema, ligar alto contraste e reabrir o app para verificar persistência.
-- Abrir um app convencional e um de TV, voltar e verificar atualização da lista.
-- Conferir atalhos disponíveis e mensagem de indisponibilidade nos demais.
-- Confirmar que o launcher original e a configuração de HOME permanecem intactos.
-- Medir RAM e renderização com Android Studio Profiler/`adb shell dumpsys meminfo com.example.projectorlauncher`.
-
-O relatório do build e das verificações na nuvem está em `BUILD_STATUS.md`. Não há testes instrumentados nem confirmação de execução no aparelho nesta versão inicial.
-
-## Versão 0.2.0 — ícones e layout de TV
-
-A causa dos retângulos sem ícones na versão 0.1 era a implementação de cartões como `Button` contendo apenas texto: nenhum ícone era solicitado ao PackageManager. Agora cada cartão usa `app_card.xml`, com `ImageView` FIT_CENTER sem tint e nome abaixo. `ActivityInfo.loadIcon(packageManager)` obtém o ícone da atividade/aplicação instalada, incluindo ícones adaptativos; o ícone padrão do Android só é usado quando o recurso não está disponível. Não há downloads de imagens.
-
-Ícones são carregados em executor único, somente para cartões visíveis, e rasterizados com transparência ARGB, proporção preservada e limite de 144×144 pixels (até 81 KiB por cartão visível). Ao sair da área visível a imagem é liberada; não há cache permanente de ícones. Metadados e Views da grade continuam proporcionais ao número de aplicativos. Medidas reais de RAM e fluidez precisam ser feitas no projetor.
-
-O padrão de novas instalações passa a ser escuro. Preferências de tema existentes, claro, sistema e alto contraste continuam disponíveis. Fire Stick/HDMI recebe o destaque principal, com Wi-Fi, Entradas e Configurações no canto superior direito. Os cartões de aplicativo recebem foco como uma única unidade e centro/Enter abre a atividade original.
-
-No Bettdow, validar YouTube, Globoplay, Prime Video e Play Store conforme estiverem instalados; conferir transparência/proporção, rolagem com D-pad, retorno de aplicativos, temas e alto contraste. Não há teste visual em hardware nesta nuvem. O launcher original e a escolha de HOME não são modificados.
+1. Atualização com a chave correta e restauração das preferências da versão 0.2.
+2. D-pad entre todas as telas, rolagem da grade, OK, OK prolongado e Voltar.
+3. Ícones reais, favoritos (inclusive lista vazia e limite de seis) e persistência após reabrir.
+4. Temas em menus e mensagens, sons ativados/desativados e movimento reduzido.
+5. Os cinco atalhos proprietários como app comum, telas de áudio/rede/Bluetooth e estado de Wi-Fi após conexão/desconexão.
+6. RAM/fluidez com Android Studio Profiler ou `adb shell dumpsys meminfo com.example.projectorlauncher`, e preservação do ZEASN/HOME original.

@@ -1,3 +1,7 @@
 <resources>
-<style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar"><item name="android:fontFamily">sans</item><item name="android:windowBackground">@color/background</item><item name="android:colorAccent">#1769CC</item><item name="android:windowActionModeOverlay">true</item><item name="android:windowLightStatusBar">false</item><item name="android:navigationBarColor">#101522</item></style>
+<style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar"><item name="android:fontFamily">sans</item><item name="android:windowBackground">@null</item><item name="android:colorAccent">#1769CC</item><item name="android:windowActionModeOverlay">true</item><item name="android:windowLightStatusBar">false</item><item name="android:navigationBarColor">#101522</item></style>
+<style name="MenuMotion">
+<item name="android:windowEnterAnimation">@anim/menu_enter</item>
+<item name="android:windowExitAnimation">@anim/menu_exit</item>
+</style>
 </resources>

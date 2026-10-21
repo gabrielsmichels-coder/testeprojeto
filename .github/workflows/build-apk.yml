@@ -41,8 +41,8 @@ jobs:
         run: |
           sdkmanager --licenses < <(for i in {1..100}; do echo y; done)
 
-      - name: Build debug APK
-        run: bash ./gradlew --no-daemon --console=plain :app:assembleDebug
+      - name: Validate and build debug APK
+        run: bash ./gradlew --no-daemon --console=plain :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

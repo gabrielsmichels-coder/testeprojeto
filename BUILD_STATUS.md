@@ -1,43 +1,31 @@
-# Build de depuração — Bettdow AC1041-X7
+# Version 0.3.0 — validation
 
-Validação na nuvem em 20/10/2026.
+## Current-instance result
 
-## Resultado
+`assembleDebug`, `testDebugUnitTest`, and `lintDebug` completed successfully (exit 0).
 
-**APK gerado com sucesso:** `app/build/outputs/apk/debug/app-debug.apk` (aproximadamente 2,3 MB).
+- APK: `app/build/outputs/apk/debug/app-debug.apk`, 2,541,712 bytes.
+- Package: `com.example.projectorlauncher` (unchanged).
+- Version: 0.3.0, versionCode 3, minimum API 28, compile/target API 35.
+- Debug signature verified with Android Build-Tools `apksigner`.
+- APK package/version/permission metadata checked with `aapt dump badging`.
+- SHA-256: `66204e1b4d8a1a130cf313539f806e8287ce437c258475aa62fa9b72f2066119`.
+- Four unit tests executed: 4 passed, 0 failed, 0 skipped. They check readable text/focus contrast in all themes, favorite removal at capacity, maximum size, ordering, deduplication and preservation of empty selections.
+- Android Lint: 0 errors, 2 warnings (intentional landscape orientation; Android 12+ backup configuration). No suppressed errors or baseline.
+- XML/YAML, required CI packages, artifact name and obsolete SDK package exclusion checked.
 
-- Pacote: `com.example.projectorlauncher`, versão `0.2.0`.
-- API mínima 28 (Android 9), target/compile SDK 35.
-- `:app:assembleDebug :app:lintDebug`: **BUILD SUCCESSFUL**, código de saída 0.
-- Assinatura de desenvolvimento validada com `apksigner verify`.
-- Metadados do APK conferidos com `aapt dump badging`; não há permissões solicitadas.
-- SHA-256: `ea1261df4beb53dc10bc5b4002dd611c28ea43df2e3e2ddcc6ee31e9623fc890`.
+The SDK, Gradle and proxy configuration from the prepared cloud workspace were reused; no TLS/checksum verification was disabled. The SDK analytics write warning in the read-only home directory is nonfatal. Some APIs needed for Android 9 compatibility produce deprecation warnings against SDK 35.
 
-O Android Lint concluiu com **0 erros e 5 avisos**: inflação sem parent, orientação landscape fixa, regras de backup em Android 12+, possível overdraw e recurso de texto não utilizado. Relatórios completos em `app/build/reports/lint-results-debug.{html,xml,txt}`. Não foram desativadas verificações ou adicionados baselines para esconder resultados.
+## UI and behavior implemented
 
-## SDK e ambiente
+Home contains at most six favorite apps; all apps live in a dedicated grid. The full-screen internal Settings dashboard contains eight categories, with preserved projector Intents inside Picture/Projection and Inputs. Appearance applies Light, Dark or High Contrast to cards, text, menus and focus. Favorite choices, themes, sounds and reduced motion persist in SharedPreferences. Native sound effects and short property/window animations are optional. No mascot code or artwork remains.
 
-Instalados em `/workspace/android-sdk`:
+Real package icons are loaded only for visible cards, on one worker thread, rasterized proportionally with transparency at a maximum of 144×144 pixels, and released offscreen. No network image or audio assets, continuous animation, runtime UI framework dependency or service is added. ACCESS_NETWORK_STATE is used only to read connection status.
 
-- Android SDK Command-line Tools (latest), obtidas do repositório oficial Google e verificadas pelo checksum publicado no índice oficial.
-- Android SDK Platform 35.
-- Android SDK Build-Tools 34.0.0.
-- Android SDK Platform-Tools.
+## CI and limits
 
-Licenças disponíveis aceitas pelo `sdkmanager --licenses`; instalação terminou com código 0. JDK 21, Gradle 8.9, AGP 8.7.3 e Kotlin 2.0.21 utilizados.
+The GitHub Actions workflow retains Java 17, manual/push-main triggers, current SDK packages and the `projector-launcher-debug` artifact (14-day retention). It now runs the same unit tests and lint before uploading the APK. Local validation does not establish that a GitHub-hosted run completed; remote results must be observed separately.
 
-A execução usou `ANDROID_HOME=/workspace/android-sdk`, `ANDROID_USER_HOME=/workspace/android-user-home` e `GRADLE_USER_HOME=/workspace/.gradle`. O Gradle foi executado pela distribuição oficial com SHA-256 verificado e propriedades JVM de proxy derivadas do proxy já fornecido pelo ambiente. Nenhuma credencial ou endereço privado de proxy foi gravado no repositório; TLS permaneceu ativo. A compilação anterior, que falhava por ausência de SDK, está resolvida.
+No emulator or physical projector test was performed. Physical testing remains necessary for D-pad scrolling/long-press, all three themes and menus, audio behavior and disabling sounds, reduced motion, Wi-Fi status changes, proprietary intent authorization and RAM/frame-time measurements on the 1 GB device. The API-28 compatibility claim here is based on build configuration/API analysis, not an emulator run.
 
-Permanecem avisos não fatais de analytics em diretório somente leitura e diferença de versões do XML de metadados do SDK. Não impediram compilação ou lint. A tentativa de enumerar dispositivos com ADB nesta nuvem falhou ao criar `/home/agent/.android` (somente leitura); nenhum dispositivo foi acessado e nenhum comando foi enviado ao projetor.
-
-## Limites da validação
-
-Os cinco atalhos usam exclusivamente `Intent`/`startActivity`. Função inexistente e acesso negado têm diálogos distintos. Não há execução de ADB/shell dentro do aplicativo, solicitação de permissões privilegiadas, alteração do launcher padrão ou desativação do ZEASN.
-
-Compilação e análise estática passaram. Abertura das funções por aplicativo comum, aparência/foco no controle remoto e consumo de RAM **ainda precisam ser validados no Bettdow físico**. Os testes ADB relatados pelo usuário não provam autorização para aplicativos comuns. Não foram executados testes instrumentados ou unitários; tarefas de análise de fontes de teste não equivalem a testes funcionais.
-
-Consulte README.md para instalação por ADB no Windows e checklist de validação manual. O APK é de teste, não de produção.
-
-## Validação da versão 0.2.0
-
-Após a correção dos ícones e integração do layout, `:app:assembleDebug :app:lintDebug` concluiu com código 0. AAPT confirmou versionCode 2, versão 0.2.0 e API mínima 28; `apksigner verify` validou o APK. O lint manteve 0 erros e 5 avisos. O código usa `ActivityInfo.loadIcon`, cartões XML com ImageView FIT_CENTER, rasterização ARGB proporcional limitada a 144×144 e carregamento apenas na área visível. Não há imagens de rede. O APK não foi instalado nesta nuvem; validar ícones de aplicativos reais, D-pad e RAM no projetor continua pendente.
+The factory ZEASN package, device, HOME preference and projector configuration were not changed. Updates of our launcher also require the same signing certificate as the previously installed APK; debug keys from separate machines/runners may differ. See README.md.
