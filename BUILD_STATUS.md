@@ -6,12 +6,12 @@ Validação na nuvem em 20/10/2026.
 
 **APK gerado com sucesso:** `app/build/outputs/apk/debug/app-debug.apk` (aproximadamente 2,3 MB).
 
-- Pacote: `com.example.projectorlauncher`, versão `0.1.0`.
+- Pacote: `com.example.projectorlauncher`, versão `0.2.0`.
 - API mínima 28 (Android 9), target/compile SDK 35.
 - `:app:assembleDebug :app:lintDebug`: **BUILD SUCCESSFUL**, código de saída 0.
 - Assinatura de desenvolvimento validada com `apksigner verify`.
 - Metadados do APK conferidos com `aapt dump badging`; não há permissões solicitadas.
-- SHA-256: `e2061958a0b0069142873493c4f4c0d1dcfae104ac3f31f7f064649100db75c4`.
+- SHA-256: `ea1261df4beb53dc10bc5b4002dd611c28ea43df2e3e2ddcc6ee31e9623fc890`.
 
 O Android Lint concluiu com **0 erros e 5 avisos**: inflação sem parent, orientação landscape fixa, regras de backup em Android 12+, possível overdraw e recurso de texto não utilizado. Relatórios completos em `app/build/reports/lint-results-debug.{html,xml,txt}`. Não foram desativadas verificações ou adicionados baselines para esconder resultados.
 
@@ -37,3 +37,7 @@ Os cinco atalhos usam exclusivamente `Intent`/`startActivity`. Função inexiste
 Compilação e análise estática passaram. Abertura das funções por aplicativo comum, aparência/foco no controle remoto e consumo de RAM **ainda precisam ser validados no Bettdow físico**. Os testes ADB relatados pelo usuário não provam autorização para aplicativos comuns. Não foram executados testes instrumentados ou unitários; tarefas de análise de fontes de teste não equivalem a testes funcionais.
 
 Consulte README.md para instalação por ADB no Windows e checklist de validação manual. O APK é de teste, não de produção.
+
+## Validação da versão 0.2.0
+
+Após a correção dos ícones e integração do layout, `:app:assembleDebug :app:lintDebug` concluiu com código 0. AAPT confirmou versionCode 2, versão 0.2.0 e API mínima 28; `apksigner verify` validou o APK. O lint manteve 0 erros e 5 avisos. O código usa `ActivityInfo.loadIcon`, cartões XML com ImageView FIT_CENTER, rasterização ARGB proporcional limitada a 144×144 e carregamento apenas na área visível. Não há imagens de rede. O APK não foi instalado nesta nuvem; validar ícones de aplicativos reais, D-pad e RAM no projetor continua pendente.

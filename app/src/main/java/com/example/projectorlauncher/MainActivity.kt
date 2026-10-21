@@ -12,20 +12,22 @@ import android.view.View
 import android.widget.*
 import java.util.concurrent.Executors
 
-/** No persistent services, network access, wallpaper bitmaps or resident icon cache. */
+/** Local package icons, bounded raster size, no network or background services. */
 class MainActivity : Activity() {
     private val preferences by lazy { getSharedPreferences("appearance", MODE_PRIVATE) }
     private val loader = Executors.newSingleThreadExecutor()
     private var generation = 0
-    private var appearance = 0
+    private var appearance = 2
     private var contrast = false
     private var textColorValue = Color.WHITE
     private var background = Color.BLACK
+    private val iconBindings = mutableListOf<IconBinding>()
+    private data class IconBinding(val image: ImageView, val component: ComponentName, var loading: Boolean = false)
     private data class App(val label: String, val component: ComponentName)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        appearance = preferences.getInt("theme", 0)
+        appearance = preferences.getInt("theme", 2)
         contrast = preferences.getBoolean("contrast", false)
         render()
     }
@@ -53,9 +55,21 @@ class MainActivity : Activity() {
         if (contrast) {
             (findViewById<View>(R.id.headline).parent as View).setBackgroundColor(Color.BLACK)
         }
+        iconBindings.clear()
+        val top = findViewById<LinearLayout>(R.id.topActions)
+        listOf(
+            "Wi-Fi" to Intent(Settings.ACTION_WIFI_SETTINGS),
+            "Entradas" to Intent("com.kystar.settings.SOURCE_LIST").setPackage("com.kystar.projector.settings"),
+            "Configurações" to Intent(Settings.ACTION_SETTINGS)
+        ).forEach { (label, intent) -> top.addView(card(label) { launch(intent, label) }.apply {
+            layoutParams = LinearLayout.LayoutParams(dp(128), dp(60)).apply { setMargins(dp(3), 0, dp(3), 0) }
+        }) }
+        val hero = findViewById<LinearLayout>(R.id.hero)
+        hero.addView(card("▶  Fire Stick / HDMI") {
+            launch(Intent().setComponent(ComponentName("com.hisilicon.tvui", "com.hisilicon.tvui.MainActivity")), "Fire Stick / HDMI")
+        }.apply { layoutParams = LinearLayout.LayoutParams(dp(320), dp(84)) })
         val row = findViewById<LinearLayout>(R.id.shortcuts)
         listOf(
-            "Fire Stick / HDMI" to Intent().setComponent(ComponentName("com.hisilicon.tvui", "com.hisilicon.tvui.MainActivity")),
             "Correção trapezoidal" to Intent("com.kystar.settings.SCREEN_CORRECT").setPackage("com.kystar.projector.settings"),
             "Zoom" to Intent("com.kystar.settings.SCREEN_ZOOM").setPackage("com.kystar.projector.settings"),
             "Seleção de fontes" to Intent("com.kystar.settings.SOURCE_LIST").setPackage("com.kystar.projector.settings"),
@@ -70,8 +84,21 @@ class MainActivity : Activity() {
         ).forEach { (label, action) -> row.addView(card(label) { launch(Intent(action)) }) }
         val themeButton = card(getString(R.string.appearance)) { chooseAppearance() }
         row.addView(themeButton)
-        row.getChildAt(0).requestFocus()
+        hero.getChildAt(hero.childCount - 1).requestFocus()
+        findViewById<View>(R.id.root).viewTreeObserver.addOnScrollChangedListener { refreshVisibleIcons() }
         loadApps()
+    }
+
+    private fun tileBackground(): android.graphics.drawable.StateListDrawable {
+        val states = android.graphics.drawable.StateListDrawable()
+        fun tile(focused: Boolean) = android.graphics.drawable.GradientDrawable().apply {
+            setColor(if (contrast) Color.BLACK else if (focused) Color.rgb(21, 78, 145) else if (textColorValue == Color.WHITE) Color.rgb(32, 42, 59) else Color.WHITE)
+            cornerRadius = dp(14).toFloat()
+            if (focused || contrast) setStroke(dp(if (focused) 4 else 1), if (focused) Color.YELLOW else Color.WHITE)
+        }
+        states.addState(intArrayOf(android.R.attr.state_focused), tile(true))
+        states.addState(intArrayOf(), tile(false))
+        return states
     }
 
     private fun card(label: String, action: () -> Unit): Button {
@@ -85,15 +112,7 @@ class MainActivity : Activity() {
             ellipsize = android.text.TextUtils.TruncateAt.END
             setPadding(dp(12), dp(8), dp(12), dp(8))
             isFocusable = true
-            val states = android.graphics.drawable.StateListDrawable()
-            fun tile(focused: Boolean) = android.graphics.drawable.GradientDrawable().apply {
-                setColor(if (contrast) Color.BLACK else if (focused) Color.rgb(21, 78, 145) else if (textColorValue == Color.WHITE) Color.rgb(32, 42, 59) else Color.WHITE)
-                cornerRadius = dp(14).toFloat()
-                if (focused || contrast) setStroke(dp(if (focused) 4 else 1), if (focused) Color.YELLOW else Color.WHITE)
-            }
-            states.addState(intArrayOf(android.R.attr.state_focused), tile(true))
-            states.addState(intArrayOf(), tile(false))
-            background = states
+            background = tileBackground()
             backgroundTintList = null
             setTextColor(textColorValue)
             layoutParams = LinearLayout.LayoutParams(dp(168), dp(84)).apply { setMargins(dp(4), dp(6), dp(4), dp(6)) }
@@ -132,23 +151,82 @@ class MainActivity : Activity() {
             runOnUiThread {
                 if (isDestroyed || generation != currentGeneration) return@runOnUiThread
                 val grid = findViewById<GridLayout>(R.id.apps)
+                iconBindings.clear()
                 grid.removeAllViews()
-                // Only visible card text is retained. No full-resolution package icons are decoded.
+                // Keep lightweight metadata for all apps; bind icon pixels only while visible.
                 val columns = maxOf(1, minOf(5, (resources.configuration.screenWidthDp - 56) / 176))
                 grid.columnCount = columns
                 entries.forEachIndexed { index, app ->
-                    grid.addView(card(app.label) {
+                    val tile = layoutInflater.inflate(R.layout.app_card, grid, false) as LinearLayout
+                    val name = tile.findViewById<TextView>(R.id.appName)
+                    val icon = tile.findViewById<ImageView>(R.id.appIcon)
+                    name.text = app.label
+                    name.setTextColor(textColorValue)
+                    // Reuse exactly the same focus colors/borders as the remote-control shortcuts.
+                    tile.background = tileBackground()
+                    tile.contentDescription = app.label
+                    tile.setOnFocusChangeListener { _, focused -> name.setTextColor(if (focused) Color.WHITE else textColorValue) }
+                    tile.setOnClickListener {
                         launch(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-                            .setComponent(app.component).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED))
-                    }.apply {
-                        layoutParams = GridLayout.LayoutParams(GridLayout.spec(index / columns), GridLayout.spec(index % columns, 1f)).apply {
-                            width = 0; height = dp(90); setMargins(dp(4), dp(6), dp(4), dp(6))
-                        }
-                    })
+                            .setComponent(app.component).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED), app.label)
+                    }
+                    tile.layoutParams = GridLayout.LayoutParams(GridLayout.spec(index / columns), GridLayout.spec(index % columns, 1f)).apply {
+                        width = 0; height = dp(148); setMargins(dp(4), dp(6), dp(4), dp(6))
+                    }
+                    iconBindings.add(IconBinding(icon, app.component))
+                    grid.addView(tile)
                 }
+                grid.post { refreshVisibleIcons() }
                 if (entries.isEmpty()) grid.addView(TextView(this).apply { setText(R.string.empty); setTextColor(textColorValue) })
             }
         }
+    }
+
+    private fun refreshVisibleIcons() {
+        if (isDestroyed) return
+        val currentGeneration = generation
+        val bounds = android.graphics.Rect()
+        iconBindings.forEach { binding ->
+            val image = binding.image
+            if (!image.getGlobalVisibleRect(bounds)) {
+                image.setImageDrawable(null)
+            } else if (image.drawable == null && !binding.loading) {
+                binding.loading = true
+                loader.execute {
+                    // ActivityInfo.loadIcon respects activity-specific icons, application icons,
+                    // adaptive icons and Android's default fallback when no icon is declared.
+                    val bitmap = try {
+                        @Suppress("DEPRECATION")
+                        val drawable = packageManager.getActivityInfo(binding.component, 0).loadIcon(packageManager)
+                        rasterIcon(drawable ?: packageManager.defaultActivityIcon)
+                    } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+                        rasterIcon(packageManager.defaultActivityIcon)
+                    } catch (_: android.content.res.Resources.NotFoundException) {
+                        rasterIcon(packageManager.defaultActivityIcon)
+                    }
+                    runOnUiThread {
+                        binding.loading = false
+                        if (!isDestroyed && generation == currentGeneration && image.getGlobalVisibleRect(android.graphics.Rect())) {
+                            image.setImageBitmap(bitmap)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun rasterIcon(drawable: android.graphics.drawable.Drawable): android.graphics.Bitmap {
+        // At most 144x144 ARGB pixels (~81 KiB) per visible icon; no tint or opaque fill.
+        val size = dp(72).coerceIn(48, 144)
+        val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: size
+        val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: size
+        val scale = minOf(size.toFloat() / width, size.toFloat() / height)
+        val w = (width * scale).toInt().coerceAtLeast(1)
+        val h = (height * scale).toInt().coerceAtLeast(1)
+        drawable.setBounds((size - w) / 2, (size - h) / 2, (size + w) / 2, (size + h) / 2)
+        drawable.draw(android.graphics.Canvas(bitmap))
+        return bitmap
     }
 
     private fun launch(intent: Intent, label: String? = null) {

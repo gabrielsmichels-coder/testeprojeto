@@ -28,7 +28,7 @@ O app é instalável e pode ser aberto como aplicativo comum, pelo ícone Projet
 
 ## Memória
 
-Pensado para aparelhos com cerca de 1 GB de RAM: Activity nativa sem Compose, AndroidX, bibliotecas de imagens, rede, vídeos, bitmaps de wallpaper, cache de ícones ou serviços permanentes. A descoberta dos aplicativos roda fora da thread principal; os cartões usam texto. A grade mantém uma View por aplicativo e deve ser medida em aparelhos com muitos apps. Não há promessa de consumo medido: uso de memória, fluidez e comportamento de controle remoto ainda precisam ser testados no hardware. O limite de heap do Gradle é da máquina de compilação, não do projetor.
+Pensado para aparelhos com cerca de 1 GB de RAM: Activity nativa sem Compose, AndroidX, bibliotecas de imagens, rede, vídeos, bitmaps de wallpaper, cache permanente de ícones ou serviços permanentes. A descoberta dos aplicativos roda fora da thread principal; os cartões exibem o ícone original e o nome. A grade mantém uma View por aplicativo e deve ser medida em aparelhos com muitos apps. Não há promessa de consumo medido: uso de memória, fluidez e comportamento de controle remoto ainda precisam ser testados no hardware. O limite de heap do Gradle é da máquina de compilação, não do projetor.
 
 ## Compilar no Windows
 
@@ -79,3 +79,13 @@ Gradle 8.9, Android Gradle Plugin 8.7.3 e Kotlin 2.0.21 estão fixados. O wrappe
 - Medir RAM e renderização com Android Studio Profiler/`adb shell dumpsys meminfo com.example.projectorlauncher`.
 
 O relatório do build e das verificações na nuvem está em `BUILD_STATUS.md`. Não há testes instrumentados nem confirmação de execução no aparelho nesta versão inicial.
+
+## Versão 0.2.0 — ícones e layout de TV
+
+A causa dos retângulos sem ícones na versão 0.1 era a implementação de cartões como `Button` contendo apenas texto: nenhum ícone era solicitado ao PackageManager. Agora cada cartão usa `app_card.xml`, com `ImageView` FIT_CENTER sem tint e nome abaixo. `ActivityInfo.loadIcon(packageManager)` obtém o ícone da atividade/aplicação instalada, incluindo ícones adaptativos; o ícone padrão do Android só é usado quando o recurso não está disponível. Não há downloads de imagens.
+
+Ícones são carregados em executor único, somente para cartões visíveis, e rasterizados com transparência ARGB, proporção preservada e limite de 144×144 pixels (até 81 KiB por cartão visível). Ao sair da área visível a imagem é liberada; não há cache permanente de ícones. Metadados e Views da grade continuam proporcionais ao número de aplicativos. Medidas reais de RAM e fluidez precisam ser feitas no projetor.
+
+O padrão de novas instalações passa a ser escuro. Preferências de tema existentes, claro, sistema e alto contraste continuam disponíveis. Fire Stick/HDMI recebe o destaque principal, com Wi-Fi, Entradas e Configurações no canto superior direito. Os cartões de aplicativo recebem foco como uma única unidade e centro/Enter abre a atividade original.
+
+No Bettdow, validar YouTube, Globoplay, Prime Video e Play Store conforme estiverem instalados; conferir transparência/proporção, rolagem com D-pad, retorno de aplicativos, temas e alto contraste. Não há teste visual em hardware nesta nuvem. O launcher original e a escolha de HOME não são modificados.
