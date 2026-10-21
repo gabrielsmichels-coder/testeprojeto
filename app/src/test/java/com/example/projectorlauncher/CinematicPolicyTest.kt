@@ -10,7 +10,7 @@ class CinematicPolicyTest {
             "com.wbd.stream" to "max", "com.hbo.hbonow" to "max", "com.hbo.hbogo" to "max",
             "com.disney.disneyplus" to "disney", "com.globo.globoplay" to "globo",
             "com.globo.globotv" to "globo", "com.google.android.youtube.tv" to "youtube",
-            "com.apple.atve.androidtv" to "apple", "com.cbs.ott" to "paramount").forEach { (pkg, expected) ->
+            "com.apple.atve.androidtv" to "apple", "com.apple.atve.androidtv.appletv" to "apple", "com.cbs.ott" to "paramount").forEach { (pkg, expected) ->
             assertEquals(expected, CinematicPolicy.scene(pkg))
         }
     }

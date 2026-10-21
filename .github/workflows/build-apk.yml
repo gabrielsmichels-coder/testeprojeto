@@ -3,7 +3,7 @@ name: Build debug APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, 'feat/**']
     paths:
       - 'app/**'
       - 'gradle/**'
@@ -11,6 +11,9 @@ on:
       - 'gradle.properties'
       - 'gradlew'
       - '.github/workflows/build-apk.yml'
+
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -44,10 +47,51 @@ jobs:
       - name: Validate and build debug APK
         run: bash ./gradlew --no-daemon --console=plain :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
-      - name: Upload debug APK
+      - name: Sign with stable protected certificate
+        if: github.event_name != 'pull_request'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          EXPECTED_SIGNING_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
+        shell: bash
+        run: |
+          for required in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!required}" ]; then
+              echo "::error::Missing repository signing secret: $required. See SIGNING.md. No ephemeral signing key will be distributed."
+              exit 1
+            fi
+          done
+          signing_file="$RUNNER_TEMP/launcher-signing.p12"
+          trap 'rm -f "$signing_file"' EXIT
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$signing_file"
+          signer="$ANDROID_HOME/build-tools/34.0.0/apksigner"
+          "$signer" sign --ks "$signing_file" --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD \
+            --out app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/app-debug-unsigned.apk
+          "$signer" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk > "$RUNNER_TEMP/launcher-cert.txt"
+          if [ -n "$EXPECTED_SIGNING_CERT_SHA256" ]; then
+            actual=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/launcher-cert.txt" | tr -d ':' | tr 'A-F' 'a-f')
+            expected=$(printf '%s' "$EXPECTED_SIGNING_CERT_SHA256" | tr -d ': ' | tr 'A-F' 'a-f')
+            test "$actual" = "$expected" || { echo '::error::Signing certificate mismatch'; exit 1; }
+          fi
+
+      - name: Upload signed test APK
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: projector-launcher-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload unsigned PR build for inspection
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: projector-launcher-unsigned
+          path: app/build/outputs/apk/debug/app-debug-unsigned.apk
+          if-no-files-found: error
+          retention-days: 7

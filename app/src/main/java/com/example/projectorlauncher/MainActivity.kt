@@ -27,13 +27,19 @@ import java.util.concurrent.Executors
 
 /** One Activity, local package resources, no resident service or network images. */
 class MainActivity : Activity() {
-    private enum class Screen { HOME, APPS, SETTINGS, PICTURE, INPUTS, APPEARANCE }
+    private enum class Screen { HOME, APPS, SETTINGS, PICTURE, INPUTS, APPEARANCE, TMDB }
     private data class App(val label: String, val component: ComponentName) {
         val key: String get() = component.packageName
     }
     private data class IconBinding(val image: ImageView, val component: ComponentName, var loading: Boolean = false)
     private val preferences by lazy { getSharedPreferences("appearance", MODE_PRIVATE) }
     private val worker = Executors.newSingleThreadExecutor()
+    private val springMotion = SpringMotion()
+    private val recommendations by lazy { RecommendationRepository(this) }
+    private var recommendationKind: String? = null
+    private var homeDock: LegacyGlass? = null
+    private var homePicks = RecommendationRepository.localPicks()
+    private var recsStatus = "Arte local · sem conteúdo promocional"
     private val audio by lazy { getSystemService(AUDIO_SERVICE) as AudioManager }
     private val connectivity by lazy { getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager }
     private var screen = Screen.HOME
@@ -97,6 +103,7 @@ class MainActivity : Activity() {
 
     private fun render(restoreFocus: String? = null) {
         wallpaperController?.close(); wallpaperController = null
+        springMotion.stop(); homeDock = null
         val currentGeneration = ++generation
         focusReady = false
         pendingNavigationSound = false
@@ -106,13 +113,14 @@ class MainActivity : Activity() {
         setContentView(R.layout.activity_main)
         window.statusBarColor = palette.background
         window.navigationBarColor = palette.background
-        window.decorView.systemUiVisibility = if (themeMode == "light") View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR else 0
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or (if (themeMode == "light") View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR else 0)
         findViewById<View>(R.id.root).setBackgroundColor(palette.background)
         findViewById<View>(R.id.readabilityOverlay).background = GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM, when (themeMode) {
                 "contrast" -> intArrayOf(palette.background, palette.background)
                 "light" -> intArrayOf(0xd9edf1f7.toInt(), 0xf5edf1f7.toInt())
-                else -> intArrayOf(0xc4101522.toInt(), 0xe6101522.toInt())
+                else -> intArrayOf(0x3307090f, 0xce07090f.toInt())
             })
         body = findViewById(R.id.body)
         buildNavigation()
@@ -123,6 +131,7 @@ class MainActivity : Activity() {
             Screen.PICTURE -> buildPicture()
             Screen.INPUTS -> buildInputs()
             Screen.APPEARANCE -> buildAppearance()
+            Screen.TMDB -> buildTmdbSettings()
         }
         findViewById<View>(R.id.contentScroll).viewTreeObserver.addOnScrollChangedListener { refreshVisibleIcons() }
         body.post {
@@ -133,11 +142,17 @@ class MainActivity : Activity() {
             focusReady = true
             refreshVisibleIcons()
         }
+        applyTypography(findViewById(R.id.root))
         if (!reducedMotion) {
             body.alpha = 0.7f
             body.translationY = dp(6).toFloat()
             body.animate().alpha(1f).translationY(0f).setDuration(160).start()
         }
+    }
+
+    private fun applyTypography(view: View) {
+        if (view is TextView) view.typeface = resources.getFont(R.font.inter)
+        if (view is ViewGroup) for (i in 0 until view.childCount) applyTypography(view.getChildAt(i))
     }
 
     private fun firstFocusable(view: View): View? {
@@ -149,19 +164,23 @@ class MainActivity : Activity() {
 
     private fun buildNavigation() {
         val bar = findViewById<LinearLayout>(R.id.navigation)
-        bar.background = glassPanel(false)
+        bar.background = if (screen == Screen.HOME) null else glassPanel(false)
         bar.setPadding(dp(6), 0, dp(6), 0)
         val compact = resources.configuration.screenWidthDp < 760
-        listOf(Triple("Início", Screen.HOME, "home"), Triple("Aplicativos", Screen.APPS, "apps"),
-            Triple("Configurações", Screen.SETTINGS, "settings")).forEach { (label, destination, key) ->
+        if (screen == Screen.HOME) bar.addView(label("Para você", 30f).apply {
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        })
+        val navigation = if (screen == Screen.HOME) listOf(Triple("Aplicativos", Screen.APPS, "apps")) else
+            listOf(Triple("Para você", Screen.HOME, "home"), Triple("Aplicativos", Screen.APPS, "apps"), Triple("Configurações", Screen.SETTINGS, "settings"))
+        navigation.forEach { (label, destination, key) ->
             bar.addView(button(label, "nav:$key") { navigate(destination) }.apply {
                 textSize = if (compact) 14f else 17f
                 isSelected = screen == destination || (destination == Screen.SETTINGS && screen in
-                    listOf(Screen.APPEARANCE, Screen.PICTURE, Screen.INPUTS))
+                    listOf(Screen.APPEARANCE, Screen.PICTURE, Screen.INPUTS, Screen.TMDB))
                 layoutParams = LinearLayout.LayoutParams(dp(if (compact) (if (key == "home") 74 else 98) else 128), dp(48)).apply { marginEnd = dp(6) }
             })
         }
-        bar.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        if (screen != Screen.HOME) bar.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
         networkButton = button("Wi-Fi", "nav:wifi") { launch(Intent(Settings.ACTION_WIFI_SETTINGS), "Rede / Wi-Fi") }.apply {
             textSize = 13f
             layoutParams = LinearLayout.LayoutParams(dp(if (compact) 88 else 108), dp(48)).apply { marginEnd = dp(6) }
@@ -200,25 +219,107 @@ class MainActivity : Activity() {
     }
 
     private fun buildHome() {
-        val home = layoutInflater.inflate(R.layout.home, body, false)
-        body.addView(home)
-        listOf(R.id.homeTitle, R.id.favoritesTitle).forEach { home.findViewById<TextView>(it).setTextColor(palette.text) }
-        listOf(R.id.homeSubtitle, R.id.homeHint).forEach { home.findViewById<TextView>(it).setTextColor(palette.secondary) }
-        home.findViewById<TextView>(R.id.homeEyebrow).setTextColor(palette.accent)
-        val row = home.findViewById<LinearLayout>(R.id.favoritesRow)
-        val selected = favoriteKeys().mapNotNull { key -> apps.firstOrNull { it.key == key } }
-        selected.forEach { app -> row.addView(appTile(app).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(160), dp(184)).apply { marginEnd = dp(14) }
-        }) }
-        if (selected.isEmpty()) {
-            row.addView(label(if (!appsLoaded) "Carregando aplicativos…" else "Escolha os aplicativos que fazem parte do seu dia.", 18f, true).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(310), -2).apply { marginEnd = dp(16) }
-            })
-            row.addView(button("Escolher favoritos", "home:choose") {
-                screen = Screen.APPS; manageFavorites = true; render()
+        val heading = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL }
+        val tabs = LinearLayout(this)
+        listOf("Explorar" to null, "Filmes" to "movie", "Séries" to "tv").forEach { (title, kind) ->
+            tabs.addView(button(title, "home:tab:$title") {
+                recommendationKind = kind; render("home:tab:$title")
+            }.apply {
+                isSelected = recommendationKind == kind
+                textSize = 14f
+                layoutParams = LinearLayout.LayoutParams(dp(112), dp(34)).apply { marginEnd = dp(8) }
             })
         }
-        home.findViewById<View>(R.id.favoritesScroll).viewTreeObserver.addOnScrollChangedListener { refreshVisibleIcons() }
+        heading.addView(tabs)
+        val picks = LinearLayout(this).apply { clipChildren = false; clipToPadding = false }
+        val dock = FrameLayout(this).apply { setPadding(dp(16), dp(6), dp(16), dp(6)); clipChildren = false }
+        homeDock = LegacyGlass(dock, themeMode == "light", themeMode == "contrast")
+        dock.background = homeDock
+        val scroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; clipToPadding = false; clipChildren = false }
+        val row = LinearLayout(this).apply { gravity = Gravity.CENTER; clipChildren = false; clipToPadding = false }
+        val selected = favoriteKeys().mapNotNull { key -> apps.firstOrNull { it.key == key } }
+        val tileWidth = ((resources.configuration.screenWidthDp - 110 - selected.size * 12) / selected.size.coerceAtLeast(1)).coerceIn(76, 146)
+        selected.forEach { app -> row.addView(appTile(app).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(tileWidth), -1).apply { setMargins(dp(6), 0, dp(6), 0) }
+        }) }
+        if (selected.isEmpty()) row.addView(button(if (appsLoaded) "Escolher favoritos" else "Carregando…", "home:choose") {
+            screen = Screen.APPS; manageFavorites = true; render()
+        })
+        scroll.addView(row, FrameLayout.LayoutParams(-2, -1))
+        dock.addView(scroll, FrameLayout.LayoutParams(-1, -1))
+        val stage = HomeStage(this).apply { setLayers(heading, picks, dock) }
+        body.addView(stage, LinearLayout.LayoutParams(-1, dp((resources.configuration.screenHeightDp - 110).coerceAtLeast(270))))
+        stage.post {
+            if (stage.isAttachedToWindow) {
+                val height = findViewById<View>(R.id.contentScroll).height - body.paddingTop - body.paddingBottom
+                if (height > 0 && stage.layoutParams.height != height) { stage.layoutParams.height = height; stage.requestLayout() }
+            }
+        }
+        populateRecommendations(picks)
+        val token = generation
+        val installed = apps.map { CinematicPolicy.scene(it.key) to it.key }.filter { it.first != "neutral" }.toMap()
+        recommendations.load(installed, recommendationKind, preferences.getString("tmdb_region", "BR") ?: "BR") { result ->
+            if (!isDestroyed && generation == token && screen == Screen.HOME) {
+                homePicks = result.picks; recsStatus = result.status
+                val focus = currentFocus?.tag as? String
+                populateRecommendations(picks)
+                if (focus?.startsWith("rec:") == true) picks.findViewWithTag<View>(focus)?.requestFocus()
+            }
+        }
+        scroll.viewTreeObserver.addOnScrollChangedListener { refreshVisibleIcons() }
+    }
+
+    private fun populateRecommendations(row: LinearLayout) {
+        row.removeAllViews()
+        val token = generation
+        homePicks.take(3).forEachIndexed { index, pick ->
+            val tile = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; clipChildren = false }
+            val photo = FrameLayout(this).apply {
+                clipToOutline = true
+                outlineProvider = object : android.view.ViewOutlineProvider() {
+                    override fun getOutline(view: View, outline: android.graphics.Outline) {
+                        outline.setRoundRect(0,0,view.width,view.height,dp(14).toFloat())
+                    }
+                }
+            }
+            val image = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }
+            photo.addView(image, FrameLayout.LayoutParams(-1,-1))
+            val scrim = View(this).apply { background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                if (themeMode == "contrast") intArrayOf(0xff000000.toInt(),0xff000000.toInt()) else intArrayOf(0x00000000,0x14000000)) }
+            photo.addView(scrim, FrameLayout.LayoutParams(-1,-1))
+            tile.addView(photo, LinearLayout.LayoutParams(-1,0,1f))
+            val text = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(7), 0, 0) }
+            text.addView(label(pick.title, if (index == 0) 17f else 15f).apply {
+                maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+                layoutParams = LinearLayout.LayoutParams(-1, dp(24))
+            })
+            text.addView(label(if (pick.image == null) "Arte local · cena original" else "${if (pick.kind == "movie") "Filme" else "Série"} · TMDB", 12f, true).apply {
+                maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+                layoutParams = LinearLayout.LayoutParams(-1, dp(20))
+            })
+            tile.addView(text, LinearLayout.LayoutParams(-1,dp(54)))
+            tile.contentDescription = pick.title + ". " + if (pick.image == null) "Arte local" else "Recomendação TMDB"
+            behavior(tile, "rec:$index") {
+                val app = apps.firstOrNull { it.key == pick.pkg }
+                if (app != null) openApp(app) else navigate(Screen.APPS)
+            }
+            tile.background = StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_focused), GradientDrawable().apply {
+                    cornerRadius = dp(14).toFloat(); setColor(0x00000000); setStroke(dp(2), palette.accent)
+                })
+                addState(intArrayOf(), ColorDrawable(android.graphics.Color.TRANSPARENT))
+            }
+            row.addView(tile, LinearLayout.LayoutParams(0,-1,if (index == 0) 3.3f else 1f).apply { if (index < 2) marginEnd = dp(14) })
+            worker.execute {
+                val bitmap = if (themeMode == "contrast") null else { pick.image?.let { BackdropPipeline.photo(it, 560, 320) }
+                    ?: CinematicArt.render(pick.scene, 560, 320) }
+                runOnUiThread {
+                    if (!isDestroyed && token == generation && image.isAttachedToWindow) image.setImageBitmap(bitmap)
+                    else bitmap?.recycle()
+                }
+            }
+        }
+        applyTypography(row)
     }
 
     private fun buildApplications() {
@@ -235,7 +336,7 @@ class MainActivity : Activity() {
     }
 
     private fun appTile(app: App): View {
-        val tile = layoutInflater.inflate(R.layout.app_card, body, false) as LinearLayout
+        val tile = layoutInflater.inflate(if (screen == Screen.HOME) R.layout.dock_app else R.layout.app_card, body, false) as LinearLayout
         tile.findViewById<TextView>(R.id.appName).apply { text = app.label; setTextColor(palette.text) }
         tile.findViewById<TextView>(R.id.appBadge).apply {
             visibility = if (screen == Screen.HOME) View.GONE else View.VISIBLE
@@ -244,6 +345,10 @@ class MainActivity : Activity() {
         }
         tile.contentDescription = app.label + if (isFavorite(app)) ", favorito" else ""
         behavior(tile, "app:${app.key}") { if (screen == Screen.APPS && manageFavorites) toggleFavorite(app) else openApp(app) }
+        if (screen == Screen.HOME) tile.background = StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_focused), android.graphics.drawable.LayerDrawable(arrayOf(DockShadow(resources.displayMetrics.density), glassPanel(true))))
+            addState(intArrayOf(), DockShadow(resources.displayMetrics.density))
+        }
         tile.setOnLongClickListener {
             confirmSound()
             showMenu(app.label, null, listOf("Abrir aplicativo" to { openApp(app) },
@@ -331,6 +436,7 @@ class MainActivity : Activity() {
         actionRow("Sons da interface: ${if (uiSounds) "ativados" else "desativados"}", "appearance:sounds") {
             uiSounds = !uiSounds; preferences.edit().putBoolean("sounds_v3", uiSounds).apply(); render("appearance:sounds")
         }
+        actionRow("TMDB e recomendações", "appearance:tmdb") { navigate(Screen.TMDB) }
         actionRow("Papéis de parede dinâmicos: ${if (dynamicWallpapers) "ativados" else "desativados"}", "appearance:wallpapers") {
             dynamicWallpapers = !dynamicWallpapers
             preferences.edit().putBoolean("dynamic_wallpapers_v4", dynamicWallpapers).apply()
@@ -347,6 +453,59 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL or Gravity.START
             layoutParams = LinearLayout.LayoutParams(-1, dp(60)).apply { bottomMargin = dp(12) }
         })
+    }
+
+    private fun buildTmdbSettings() {
+        heading("TMDB e recomendações", "Sugestões dos serviços instalados. Sem chave, usamos somente arte local.")
+        actionRow("Configurar chave/token neste aparelho", "tmdb:key") { editTmdbCredential() }
+        actionRow("Região: ${preferences.getString("tmdb_region", "BR")}", "tmdb:region") {
+            showMenu("Região do catálogo", null, listOf("Brasil" to { setRegion("BR") }, "Portugal" to { setRegion("PT") }, "Estados Unidos" to { setRegion("US") }))
+        }
+        actionRow("Atualizar recomendações", "tmdb:refresh") {
+            recommendations.invalidate(); navigate(Screen.HOME)
+        }
+        actionRow("Remover credencial e usar arte local", "tmdb:clear") {
+            TmdbCredentials(this).clear(); recommendations.invalidate(); homePicks = RecommendationRepository.localPicks(); recsStatus = "Arte local · sem credencial TMDB"; render("tmdb:clear")
+        }
+        body.addView(label(recsStatus, 16f, true))
+        body.addView(label("This product uses the TMDB API but is not endorsed or certified by TMDB. Imagens e disponibilidade seguem os termos do TMDB. A credencial fica cifrada com Android Keystore somente neste aparelho.", 15f, true))
+        actionRow("Licenças Free My TV / Inter", "tmdb:licenses") {
+            fun notice(resource: Int, title: String) {
+                val text = resources.openRawResource(resource).bufferedReader().use { it.readText() }
+                showMenu(title, text, emptyList())
+            }
+            showMenu("Licenças", null, listOf("Free My TV · MIT" to { notice(R.raw.free_my_tv_license, "Free My TV · MIT") },
+                "Inter · SIL OFL" to { notice(R.raw.inter_font_license, "Inter · SIL OFL") }))
+        }
+    }
+
+    private fun setRegion(value: String) {
+        preferences.edit().putString("tmdb_region", RecommendationPolicy.region(value)).apply()
+        recommendations.invalidate(); render("tmdb:region")
+    }
+    private fun editTmdbCredential() {
+        val input = EditText(this).apply {
+            hint = "API Key v3 ou Read Access Token"; setTextColor(palette.text); setHintTextColor(palette.secondary)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            isSingleLine = true; importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+        }
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(24),dp(24),dp(24),dp(24)); setBackgroundColor(palette.surface) }
+        panel.addView(label("Credencial TMDB", 24f)); panel.addView(input,LinearLayout.LayoutParams(-1,dp(60)))
+        panel.addView(button("Salvar", "tmdb:save") {
+            val value = input.text.toString().trim()
+            if (value.isNotEmpty()) {
+                try { TmdbCredentials(this).save(value); recommendations.invalidate(); dialog.dismiss(); render("tmdb:key") }
+                catch (_: Exception) { dialog.dismiss(); showMenu("TMDB", "Não foi possível proteger a credencial neste firmware. Nenhuma chave foi salva em texto puro.", emptyList()) }
+            }
+        })
+        panel.addView(button("Cancelar", "tmdb:cancel") { dialog.dismiss() })
+        dialog.setOnDismissListener { input.text.clear(); if (menu === dialog) menu = null }
+        dialog.setContentView(panel); dialog.show(); dialog.window?.setBackgroundDrawable(ColorDrawable(palette.surface))
+        dialog.window?.setLayout(minOf(dp(580), resources.displayMetrics.widthPixels-dp(48)),-2)
+        dialog.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        applyTypography(panel); input.requestFocus(); menu = dialog
     }
 
     private fun glassPanel(focused: Boolean, selected: Boolean = false): android.graphics.drawable.Drawable {
@@ -391,9 +550,8 @@ class MainActivity : Activity() {
         view.tag = key; view.isFocusable = true; view.isClickable = true; view.isSoundEffectsEnabled = false
         view.background = tileBackground()
         view.setOnFocusChangeListener { v, focused ->
-            v.animate().cancel()
-            if (reducedMotion) { v.scaleX = 1f; v.scaleY = 1f }
-            else v.animate().scaleX(if (focused) (if (key.startsWith("app:")) 1.05f else 1.025f) else 1f).scaleY(if (focused) (if (key.startsWith("app:")) 1.05f else 1.025f) else 1f).setDuration(100).start()
+            val target = if (!focused) 1f else if (key.startsWith("app:") && screen == Screen.HOME) 1.16f else if (key.startsWith("app:") || key.startsWith("rec:")) 1.05f else 1.025f
+            springMotion.focus(v, target, reducedMotion)
             if (focused) requestWallpaper(key)
             if (focused && focusReady && pendingNavigationSound) {
                 if (uiSounds) audio.playSoundEffect(navigationSound)
@@ -431,12 +589,18 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(24), dp(24), dp(24)); background = glassPanel(false)
         }
         panel.addView(label(title, 24f))
-        if (message != null) panel.addView(label(message, 17f, true))
+        if (message != null) {
+            if (message.length > 400) panel.addView(ScrollView(this).apply {
+                addView(label(message, 16f, true)); isFocusable = true
+            }, LinearLayout.LayoutParams(-1, minOf(dp(230), resources.displayMetrics.heightPixels / 3)))
+            else panel.addView(label(message, 17f, true))
+        }
         (choices + ("Fechar" to {})).forEachIndexed { index, (name, action) ->
             panel.addView(button(name, "dialog:$index") { dialog.dismiss(); action() }.apply {
                 layoutParams = LinearLayout.LayoutParams(-1, dp(56)).apply { topMargin = dp(10) }
             })
         }
+        applyTypography(panel)
         dialog.setContentView(panel)
         dialog.setOnKeyListener { _, _, event ->
             if (event.action == KeyEvent.ACTION_DOWN && event.keyCode in listOf(KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN)) {
@@ -530,12 +694,17 @@ class MainActivity : Activity() {
 
     private fun ensureWallpaper() {
         if (wallpaperController != null || themeMode == "contrast") return
-        wallpaperController = WallpaperController(findViewById(R.id.wallpaperFirst), findViewById(R.id.wallpaperSecond), reducedMotion)
+        wallpaperController = WallpaperController(findViewById(R.id.wallpaperFirst), findViewById(R.id.wallpaperSecond), reducedMotion) { frost -> homeDock?.setTexture(frost) }
         wallpaperController?.request("neutral", immediate = true)
     }
     private fun requestWallpaper(key: String?) {
-        val scene = if (dynamicWallpapers && screen == Screen.HOME && key?.startsWith("app:") == true)
-            CinematicPolicy.scene(key.removePrefix("app:")) else "neutral"
+        val pick = if (key?.startsWith("rec:") == true) homePicks.getOrNull(key.removePrefix("rec:").toIntOrNull() ?: -1) else null
+        val scene = when {
+            !dynamicWallpapers || screen != Screen.HOME -> "neutral"
+            pick != null -> pick.image?.let { "photo:${it.path}" } ?: pick.scene
+            key?.startsWith("app:") == true -> CinematicPolicy.scene(key.removePrefix("app:"))
+            else -> "neutral"
+        }
         wallpaperController?.request(scene)
     }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -564,6 +733,7 @@ class MainActivity : Activity() {
         findViewById<View>(R.id.root).post { if (!isDestroyed) { ensureWallpaper(); requestWallpaper(currentFocus?.tag as? String) } }
     }
     override fun onStop() {
+        springMotion.stop()
         wallpaperController?.close(); wallpaperController = null
         if (callbackRegistered) { connectivity.unregisterNetworkCallback(networkCallback); callbackRegistered = false }
         super.onStop()
@@ -571,6 +741,7 @@ class MainActivity : Activity() {
     @Deprecated("Legacy back handling for API 28")
     override fun onBackPressed() {
         when (screen) {
+            Screen.TMDB -> navigate(Screen.APPEARANCE)
             Screen.PICTURE, Screen.INPUTS, Screen.APPEARANCE -> navigate(Screen.SETTINGS)
             Screen.APPS -> if (manageFavorites) { manageFavorites = false; render("apps:manage") } else navigate(Screen.HOME)
             Screen.SETTINGS -> navigate(Screen.HOME)
@@ -583,7 +754,7 @@ class MainActivity : Activity() {
         super.onSaveInstanceState(outState)
     }
     override fun onDestroy() {
-        generation++; menu?.dismiss(); wallpaperController?.close(); worker.shutdownNow()
+        generation++; menu?.dismiss(); wallpaperController?.close(); springMotion.stop(); recommendations.close(); worker.shutdownNow()
         iconBindings.clear()
         super.onDestroy()
     }

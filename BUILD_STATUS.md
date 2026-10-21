@@ -1,31 +1,27 @@
-# Version 0.4.0 — validation
+# 0.5.0 — Free My TV Edition: validation
 
-## Local build
+## Verified locally
 
-`assembleDebug`, `testDebugUnitTest`, and `lintDebug` completed with exit code 0.
+- Full JDK 17 (Temurin), Gradle 8.9, AGP 8.7.3, Kotlin 2.0.21, SDK 35 / min API 28.
+- `assembleDebug`, `testDebugUnitTest`, `lintDebug`: exit 0, including a build with `CI=true`.
+- **15 unit tests passed, 0 failed, 0 skipped**: existing themes/favorites, mappings/image bounds, adapted spring settling/interruption, safe TMDB paths/regions/cache budget, nonzero and bounded transient decode sampling.
+- Lint: **0 errors, 3 warnings**. Remaining warnings: landscape, Android 12+ backup rules, intentional layered FrameLayout. No errors suppressed.
+- Package unchanged: `com.example.projectorlauncher`; versionCode 5, versionName 0.5.0; metadata checked with AAPT.
+- Debug APK: `app/build/outputs/apk/debug/app-debug.apk`, 3,181,209 bytes, verified by apksigner.
+- SHA-256: `30dcc5e48bb4b3b107ef292ea4d154588c58f8dc52d79c1afc0d3be98e679167`.
+- CI unsigned input: `app/build/outputs/apk/debug/app-debug-unsigned.apk`.
+- Exact signing shell from the workflow executed locally twice with the existing private development keystore, never written into the repository. Same certificate both runs; optional SHA-256 certificate pin passed; temporary key removed. Missing-secret case fails explicitly before distribution. This is a test of the signing path, not configuration of GitHub Secrets.
+- MIT copyright/license, Inter OFL notice and Inter font verified inside the APK. Adaptations documented in FREE_MY_TV_ADAPTATION.md.
+- XML, workflow YAML, secret-pattern scan and `git diff --check` passed.
 
-- APK: `app/build/outputs/apk/debug/app-debug.apk`, 2,571,944 bytes.
-- Package `com.example.projectorlauncher`, version 0.4.0, versionCode 4, min API 28, target/compile API 35.
-- `apksigner verify`: passed; `aapt dump badging`: package/version/API checked.
-- SHA-256: `9ec59b23d711c3882a7a3ff1c50127c0d66f03e085d4bcc76d509fddf5233a50`.
-- Unit tests: **9 passed, 0 failed, 0 skipped**. Tests cover existing favorite rules, all three palettes, translucent glass over black/white backdrops, supported/unknown package mappings, bounded resolution/aspect ratio and opaque high-contrast surfaces.
-- Lint: **0 errors, 3 warnings**. Warnings are landscape orientation, Android 12+ backup configuration and the intentional layered root FrameLayout. No error suppression/baseline was added.
-- XML parsed successfully; GitHub Actions workflow and application manifest are unchanged.
+The machine's original Java runtime lacked jlink when Java source ports were introduced. A full official Temurin JDK 17 was downloaded through the supported HTTPS route and checked against its published SHA-256, then extracted outside the repository. No verification was disabled or SDK files committed.
 
-## Delivered behavior
+## Not yet observed / external prerequisites
 
-Glass panels use translucent native gradients, highlights and layered borders, without blur or RenderEffect. App focus scales to 1.05× without changing layout. Home omits repeated favorite badges. Original installed app icons, app launching, favorites, menus, sounds, themes, settings and projector Intents are retained.
+No physical AC1041-X7 or emulator test was performed. Composition/typography are adapted from the upstream screenshot and source, not verified by a screenshot of this app running on hardware. D-pad/layout, shadows/springs, Android Keystore UI, TMDB authenticated requests, cache/network failures and 1 GB device frame-time/heap require device testing. No private TMDB credential was supplied; no authenticated catalog query was claimed as passed. Offline UI is implemented without a required network request.
 
-Home focus selects original service-themed cinematic landscapes (not promotional imagery) for Netflix, Prime Video, Max/HBO, Disney+, Globoplay, YouTube, Apple TV and Paramount. Unknown packages/controls select neutral art. Artwork provenance/license is in ARTWORK.md. No images are downloaded or scraped, and user-photo import is not part of this version.
+Pipeline installable output requires four protected repository signing secrets (SIGNING.md). Their current availability cannot be checked through the blocked GitHub API in this session. No unstable runner certificate is distributed as fallback. PR builds publish unsigned inspection artifacts, which must be signed before installing. Successful local signing does not prove a GitHub-hosted run completed or uploaded its artifact.
 
-Wallpaper requests debounce for 180 ms, cancel stale work/results and crossfade for 380 ms. A worker rasterizes static artwork to actual view dimensions capped at 1920×1080. Current and incoming RGB_565 frames are the only retained wallpapers (at most approximately 8 MiB at 1080p, separate from bounded visible app icons). Layers are cleared on stop/rebuild; no continuous effects run. Dynamic wallpapers can be disabled in Appearance. Reduced motion eliminates fades/scaling; High Contrast uses solid opaque surfaces and no wallpaper images.
+A development branch is used; main must remain unchanged until review. PR creation and remote run status are separate GitHub operations and require API access; final delivery reports their observed outcomes.
 
-The contrast test initially caught insufficient dark secondary-text contrast over bright glass. Secondary text was brightened and the unchanged contrast threshold now passes.
-
-## CI and physical testing
-
-The existing Java 17 GitHub Actions workflow remains intact: push-main/manual triggers, unit tests, lint, debug APK build and `projector-launcher-debug` upload. Local build success does not establish remote completion; check the current Actions run separately if API access is unavailable.
-
-No emulator or physical projector run was performed. On the Bettdow AC1041-X7, verify fast D-pad focus changes/cancelled fades, artwork colors and projector text contrast, sounds/reduced motion, favorite management, Wi-Fi status, all native projector Intents, app-return lifecycle and RAM/frame pacing on the 1 GB device. Memory bounds above are calculated allocation limits, not measured total application RAM.
-
-ZEASN, factory HOME configuration and projector state were not changed. Updating an installed debug build requires the same signing key; different cloud/Windows/CI debug keys may prevent an in-place update even with the same package ID.
+Factory ZEASN (`com.zeasn.whale.saas`), default HOME and projector system configuration were not touched. Native HDMI, keystone, zoom, source and orientation Intents remain in the app with graceful errors.

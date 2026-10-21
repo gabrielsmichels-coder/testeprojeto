@@ -1,8 +1,1 @@
-<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="pt">
-    <string name="app_name">Projetor Home</string>
-    <string name="home_eyebrow">PROJETOR HOME</string>
-    <string name="home_title">Seu próximo momento.</string>
-    <string name="home_subtitle">Escolha um favorito e aproveite.</string>
-    <string name="favorites_title">Favoritos</string>
-    <string name="favorites_hint">Personalize em Aplicativos › Gerenciar favoritos</string>
-</resources>
+<resources><string name="app_name">Projetor Home</string></resources>

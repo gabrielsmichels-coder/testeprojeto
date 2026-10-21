@@ -9,13 +9,15 @@ import java.util.concurrent.Future
 
 /** Only one visible raster plus an incoming raster. No retained wallpaper cache. */
 class WallpaperController(private val first: ImageView, private val second: ImageView,
-                          private val reducedMotion: Boolean) {
+                          private val reducedMotion: Boolean,
+                          private val onFrost: (android.graphics.Bitmap?) -> Unit = {}) {
     private val handler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     @Volatile private var generation = 0
     private var current = first
     private var incoming = second
     private var requested: String? = null
+    private var nextFrost: android.graphics.Bitmap? = null
     private var task: Future<*>? = null
     @Volatile private var closed = false
 
@@ -29,7 +31,9 @@ class WallpaperController(private val first: ImageView, private val second: Imag
         first.animate().cancel(); second.animate().cancel()
         if (incoming.drawable != null && incoming.alpha >= 0.5f) {
             val previous = current; current = incoming; incoming = previous
+            onFrost(nextFrost)
         }
+        nextFrost = null
         current.alpha = 1f
         incoming.setImageDrawable(null); incoming.tag = null; incoming.alpha = 0f
         if (current.tag == scene) return
@@ -38,10 +42,12 @@ class WallpaperController(private val first: ImageView, private val second: Imag
             val width = first.width.coerceAtLeast(1); val height = first.height.coerceAtLeast(1)
             task = worker.submit {
                 if (generation != token) return@submit
-                val bitmap = CinematicArt.render(scene, width, height)
-                if (closed || generation != token) { bitmap.recycle(); return@submit }
+                val frame = BackdropPipeline.load(scene, width, height)
+                val bitmap = frame.image
+                if (closed || generation != token) { bitmap.recycle(); frame.frost.recycle(); return@submit }
                 handler.post {
-                    if (closed || generation != token) { bitmap.recycle(); return@post }
+                    if (closed || generation != token) { bitmap.recycle(); frame.frost.recycle(); return@post }
+                    nextFrost = frame.frost
                     incoming.setImageBitmap(bitmap); incoming.tag = scene
                     incoming.bringToFront()
                     if (reducedMotion || current.drawable == null) finishTransition(token)
@@ -54,6 +60,7 @@ class WallpaperController(private val first: ImageView, private val second: Imag
 
     private fun finishTransition(token: Int) {
         if (closed || generation != token) return
+        onFrost(nextFrost); nextFrost = null
         current.setImageDrawable(null); current.tag = null; current.alpha = 0f
         incoming.alpha = 1f
         val previous = current; current = incoming; incoming = previous
@@ -64,6 +71,7 @@ class WallpaperController(private val first: ImageView, private val second: Imag
         handler.removeCallbacksAndMessages(null); task?.cancel(false)
         first.animate().cancel(); second.animate().cancel()
         first.setImageDrawable(null); second.setImageDrawable(null)
+        onFrost(null); nextFrost = null
         worker.shutdownNow()
     }
 }

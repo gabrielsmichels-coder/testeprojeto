@@ -14,3 +14,9 @@ android-sdk/
 *.keystore
 .env
 .env.*
+*.p12
+*.pfx
+*.key
+keystore.properties
+signing.properties
+config.properties

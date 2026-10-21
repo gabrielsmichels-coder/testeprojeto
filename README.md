@@ -1,16 +1,16 @@
-# Projetor Home · 0.4.0
+# Projetor Home · 0.5.0 — Free My TV Edition
 
 Launcher Kotlin + XML para o Bettdow AC1041-X7, Android 9/API 28 ou superior, com foco em controle remoto e aparelhos com aproximadamente 1 GB de RAM. É uma evolução do projeto existente, com o mesmo pacote `com.example.projectorlauncher`.
 
 ## Experiência de TV
 
-- **Início:** uma única faixa de até seis favoritos com ícones originais, espaço visual e acesso rápido à navegação. Não contém grade completa de apps, destaque HDMI ou faixa de atalhos de projeção.
-- **Aplicativos:** grade rolável com todos os aplicativos iniciáveis, priorizando a entrada de TV quando um pacote oferece várias entradas. Selecione **Gerenciar favoritos** para adicionar/remover com OK. Mantenha OK pressionado sobre um app para abrir o menu de ações; isso também funciona nos favoritos.
-- **Configurações:** painel próprio, em tela cheia, com Imagem e projeção, Som, Rede/Wi-Fi, Bluetooth, Entradas/HDMI, Aplicativos, Aparência e Sistema. O painel nativo do firmware só abre depois da escolha de uma função que o utiliza.
-- **Barra superior:** Início, Aplicativos, Configurações, estado de conexão Wi-Fi/rede, Entradas, engrenagem e relógio. O estado da rede não afirma acesso à Internet e não exige localização/SSID.
-- **Controle remoto:** setas movem o foco, OK/Enter seleciona, OK prolongado abre as opções do aplicativo. Voltar sai primeiro da edição de favoritos, depois retorna à tela anterior/início. Home continua sob controle do Android.
+A versão 0.5.0 adapta componentes e a composição do [Free My TV](https://github.com/simbasjungles/free-my-tv), sob MIT: recomendações largas/estreitas com legendas externas, abas Explorar/Filmes/Séries, tipografia Inter, dock translúcido inferior, mola de foco e sombra nine-slice própria para GPUs antigas. [FREE_MY_TV_ADAPTATION.md](FREE_MY_TV_ADAPTATION.md) documenta arquivos estudados, copyright, portas, limites e diferenças.
 
-Os favoritos iniciais são uma seleção de até cinco apps disponíveis, com preferência por serviços de streaming. A seleção salva pode ficar completamente vazia. Apps desinstalados deixam de aparecer; suas preferências podem voltar a ser usadas se o pacote for reinstalado. Não há download de imagens ou conteúdo.
+**Aplicativos** abre a grade completa com ícones reais; **Gerenciar favoritos** altera os seis apps da prateleira. OK prolongado abre opções; D-pad e Voltar continuam funcionando. A engrenagem abre nosso dashboard: projeção, áudio, rede, Bluetooth, entradas, apps, aparência e sistema. ZEASN e o HOME padrão não são alterados.
+
+**TMDB:** Configurações > Aparência > TMDB e recomendações. Insira a chave/token apenas no aparelho; a chave é cifrada com Android Keystore, não vai ao GitHub/APK. A janela do app usa modo imersivo local (sem alterar configurações do sistema). Sem credencial, três cartões de arte local original mantêm a composição completa e abrem a grade de apps. Com credencial, picks dos serviços instalados abrem o respectivo aplicativo. A consulta autenticada precisa ser validada com uma chave real.
+
+**APK pela pipeline e updates:** [SIGNING.md](SIGNING.md) explica os quatro GitHub Secrets necessários e o certificado estável. Sem eles, o build compila, mas a pipeline recusa distribuir um novo APK com assinatura temporária. O artefato de PR é unsigned e não é instalável até assinar. Builds locais comuns usam a chave debug local; não prometem compatibilidade com chaves antigas perdidas.
 
 ## Aparência, movimento e áudio
 
@@ -18,7 +18,7 @@ Em **Configurações > Aparência**, escolha Claro, Escuro ou Alto contraste. A 
 
 Sons da interface podem ser ativados/desativados. Navegação e confirmação usam efeitos nativos diferentes (`FX_FOCUS_NAVIGATION_*` e `FX_KEYPRESS_RETURN`), respeitando as opções e o volume do Android. O firmware pode mapear ou silenciar esses efeitos; não há assets de áudio nem controle forçado de volume.
 
-Animações usam somente APIs nativas: escala de foco de 1,05× nos aplicativos (1,025× nos demais controles)/100 ms, transição de tela de 160 ms, entrada de menu de 140 ms e saída de 100 ms. **Reduzir animações** desativa escala, fades (inclusive entre wallpapers), deslocamentos e animações de janela dos menus. Não há mascote, loop contínuo de animação ou vídeo. A troca opcional de wallpapers usa crossfade de 380 ms após 180 ms de foco estável.
+Animações usam somente APIs nativas: mola amortecida adaptada do upstream (1,16× no dock, 1,05× em apps/picks e 1,025× nos demais controles), transição de tela de 160 ms, entrada de menu de 140 ms e saída de 100 ms. **Reduzir animações** desativa escala, fades (inclusive entre wallpapers), deslocamentos e animações de janela dos menus. Não há mascote, loop contínuo de animação ou vídeo. A troca opcional de wallpapers usa crossfade de 380 ms após 180 ms de foco estável.
 
 ## Ícones reais e memória
 
@@ -42,7 +42,7 @@ Os comandos equivalentes foram verificados pelo usuário via ADB. Os atalhos no 
 
 Não removemos, desativamos ou configuramos o ZEASN, não alteramos preferências de HOME e não selecionamos este launcher como padrão. A declaração HOME existente permanece para escolha manual quando o usuário desejar; o app também abre pelo ícone comum.
 
-O pacote é o mesmo, versionCode é **4** e versionName é **0.4.0**. Atualização por cima exige também a **mesma chave de assinatura**. Builds debug da nuvem, do seu Windows e de runners diferentes podem usar chaves diferentes. Se o Android reportar assinatura incompatível, não desinstale automaticamente: perderia os dados locais do nosso launcher. Use a chave original para compilar uma atualização compatível. Isso não envolve a assinatura ou a instalação do ZEASN.
+O pacote é o mesmo, versionCode é **5** e versionName é **0.5.0**. Atualização por cima exige também a **mesma chave de assinatura**. Builds debug da nuvem, do seu Windows e de runners diferentes podem usar chaves diferentes. Se o Android reportar assinatura incompatível, não desinstale automaticamente: perderia os dados locais do nosso launcher. Use a chave original para compilar uma atualização compatível. Isso não envolve a assinatura ou a instalação do ZEASN.
 
 ## Compilar no Windows
 
@@ -69,7 +69,7 @@ Isso abre o aplicativo, sem configurar o HOME padrão. Não há comandos que alt
 
 ## GitHub Actions e validação
 
-Em **Actions > Build debug APK**, uma execução manual ou push relevante na `main` executa testes unitários, lint e build com Java 17, instala pacotes atuais do SDK e publica o artefato `projector-launcher-debug` por 14 dias. O ZIP do artefato contém `app-debug.apk`. A primeira compilação requer acesso aos repositórios oficiais Gradle/Google Maven/Maven Central; mantenha TLS e checksums ativos.
+Em **Actions > Build debug APK**, uma execução manual, PR ou push relevante na `main`/`feat/**` executa testes unitários, lint e build com Java 17, instala pacotes atuais do SDK e assina com a chave protegida e publica `projector-launcher-debug` por 14 dias (exceto PRs, que geram `projector-launcher-unsigned`). O ZIP assinado contém `app-debug.apk`; veja SIGNING.md antes de configurar a pipeline. A primeira compilação requer acesso aos repositórios oficiais Gradle/Google Maven/Maven Central; mantenha TLS e checksums ativos.
 
 Na nuvem preparada:
 
@@ -91,7 +91,7 @@ No Bettdow físico, conferir:
 5. Os cinco atalhos proprietários como app comum, telas de áudio/rede/Bluetooth e estado de Wi-Fi após conexão/desconexão.
 6. RAM/fluidez com Android Studio Profiler ou `adb shell dumpsys meminfo com.example.projectorlauncher`, e preservação do ZEASN/HOME original.
 
-## Versão 0.4.0 — glass e cinema
+## Base preservada da versão 0.4.0 — glass e cinema
 
 Painéis translúcidos com cantos arredondados, brilho estático e bordas em camadas dão unidade à navegação, cartões e menus. Não há blur em tempo real, RenderEffect, sombras grandes ou frameworks novos. Alto contraste mantém superfícies opacas. Testes verificam texto normal/secundário sobre glass com fundos extremos claros/escuros. O cabeçalho usa uma faixa de vidro; os favoritos de Home não repetem a legenda “★ Favorito”.
 
@@ -99,6 +99,6 @@ Na tela inicial, o foco D-pad em favoritos de streaming troca o cenário sem abr
 
 O carregamento espera 180 ms de foco estável. Pedidos anteriores são invalidados, inclusive resultados de rasterização que terminam atrasados. A transição dura 380 ms; movimentos rápidos não mantêm um cache de todos os serviços. Há apenas o quadro atual e o próximo, em RGB_565, até 1920×1080 (aproximadamente 8 MiB para dois wallpapers 1080p). Em resoluções menores usa o tamanho real; telas maiores usam amostragem limitada a 1080p para proteger a RAM. Imagens são liberadas ao sair da Activity/trocar a tela. Os ícones continuam com seu orçamento separado e carregamento somente na área visível.
 
-Em **Configurações > Aparência**, **Papéis de parede dinâmicos** pode ser desativado para manter somente o cenário neutro. Movimento reduzido troca o cenário sem fade; Alto contraste desativa as imagens e o glass translúcido. As preferências ficam salvas. Não há importação de fotos ou acesso à Internet nesta implementação.
+Em **Configurações > Aparência**, **Papéis de parede dinâmicos** pode ser desativado para manter somente o cenário neutro. Movimento reduzido troca o cenário sem fade; Alto contraste desativa as imagens e o glass translúcido. As preferências ficam salvas. A base 0.4 não importava fotos. Na edição 0.5, o acesso opcional a fotos TMDB é descrito em FREE_MY_TV_ADAPTATION.md; sem credencial, o fundo permanece local.
 
 No projetor, validar foco rápido entre serviços, passagem por apps sem mapeamento, retorno de apps externos, temas, menus, legibilidade sobre o fundo e memória/fluidez com wallpaper ativado e desativado. O estilo do desenho e a fidelidade das cores precisam de avaliação no hardware; testes locais não medem desempenho no AC1041-X7.
