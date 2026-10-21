@@ -13,7 +13,7 @@ object CinematicPolicy {
         "com.disney.disneyplus", "com.disney.starplus" -> "disney"
         "com.globo.globoplay", "com.globo.globotv" -> "globo"
         "com.google.android.youtube.tv", "com.google.android.youtube" -> "youtube"
-        "com.apple.atve.androidtv" -> "apple"
+        "com.apple.atve.androidtv", "com.apple.atve.androidtv.appletv" -> "apple"
         "com.cbs.ott", "com.cbs.app", "com.paramount.plus" -> "paramount"
         else -> "neutral"
     }
